@@ -11,7 +11,8 @@ import scala.sys.process._
 class CHAComplementer(appJar : File, libJars : List[File], jPhantomOutDir : File) { 
   
   def complement() : Unit = {
-    val JPHANTOM_JAR = "jphantom/build/jar/jphantom.jar"
+//    val JPHANTOM_JAR = "jphantom/build/jar/jphantom.jar"
+    val JPHANTOM_JAR = "lib/jphantom/build/jar/jphantom.jar"
     assert(new File(JPHANTOM_JAR).exists(), s"Can't find JPhantom; expecting the JAR at $JPHANTOM_JAR")
     // path to script that runs JPhantom
     val JPHANTOM = s"java -jar $JPHANTOM_JAR"
