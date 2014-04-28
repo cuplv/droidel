@@ -5,7 +5,7 @@ Droidel is a model of the Android framework that simplifies static analysis of A
 
 Installation
 ------------
-Installing Droidel requires sbt and ant. Droidel also depends on the JPhantom project [Balatsouras and Smaragdakis OOPSLA '13](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf). To install Droidel, run the following starting from Droidel's top-level directory:
+Installing Droidel requires sbt and ant. Droidel also depends on the [JPhantom](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf) [tool](https://github.com/gbalats/jphantom). To install Droidel, run the following from Droidel's top-level directory:
 
 (1) Download and build JPhantom into the lib/ directory: 
 
