@@ -32,16 +32,19 @@ Running Droidel
 --------------
 
 Droidel takes two inputs: APP, a path to a top level directory of an Android application, and ANDROID_JAR, a path to a JAR containing the desired version of the Android library. Droidel expects the directory for the application to be organized as follows:
+
+<pre>
 APP
 +-- AndroidManifest.XML
 +-- bin/
 |   +-- classes/
-|       +-- <bytecodes>
+|       +-- bytecodes
 |-- res/
 |   +-- layout/
-|       +-- <layout XML files>
+|       +-- layout XML files
 +-- libs/
-|   +-- <library JARs, if any>
+|   +-- library JARs, if any
+</pre>
 
 Do not use the JARS packaged with the Android SDK as ANDROID_JAR. These JARs only contain type-correct stubs for applications to compile against. Good sources for Android JARs are [GrepCode](http://grepcode.com/project/repository.grepcode.com/java/ext/com.google.android/android/) and Sable's [android-platforms](https://github.com/Sable/android-platforms) GitHub project.
 
