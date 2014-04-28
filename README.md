@@ -5,7 +5,7 @@ Droidel is a model of the Android framework that simplifies static analysis of A
 
 Installation
 ------------
-Installing Droidel requires sbt and ant. Droidel also depends on the JPhantom project [Balatsouras and Smaragdakis OOPSLA '13]. To install Droidel, run the following starting from Droidel's top-level directory:
+Installing Droidel requires sbt and ant. Droidel also depends on the JPhantom project [Balatsouras and Smaragdakis OOPSLA '13](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf). To install Droidel, run the following starting from Droidel's top-level directory:
 
 (1) Download and build JPhantom into the lib/ directory: 
 
@@ -27,20 +27,21 @@ To be sure everything was installed correctly, it is probably a good idea to run
 
    sbt test:run
 
+
 Running Droidel
 --------------
 
 Droidel takes two inputs: APP, a path to a top level directory of an Android application, and ANDROID_JAR, a path to a JAR containing the desired version of the Android library. Droidel expects the directory for the application to be organized as follows:
 APP
-|-- AndroidManifest.XML
-|-- bin/
-     |-- classes/
-            | <bytecodes>
++-- AndroidManifest.XML
++-- bin/
+|   +-- classes/
+|       +-- <bytecodes>
 |-- res/
-     | -- layout/
-            | <layout XML files>
-|-- libs/
-     | <library JARs, if any>
+|   +-- layout/
+|       +-- <layout XML files>
++-- libs/
+|   +-- <library JARs, if any>
 
 Do not use the JARS packaged with the Android SDK as ANDROID_JAR. These JARs only contain type-correct stubs for applications to compile against. Good sources for Android JARs are [GrepCode](http://grepcode.com/project/repository.grepcode.com/java/ext/com.google.android/android/) and Sable's [android-platforms](https://github.com/Sable/android-platforms) GitHub project.
 
