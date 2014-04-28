@@ -1,0 +1,6 @@
+# view AndroidManifest.xml #generated:15
+-keep class com.test.lifecycleandinterfacecallback.MainActivity { <init>(...); }
+
+# onClick res/layout/main.xml #generated:13
+-keepclassmembers class * { *** myOnClick(...); }
+

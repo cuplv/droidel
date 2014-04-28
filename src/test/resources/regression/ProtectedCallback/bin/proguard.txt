@@ -1,0 +1,3 @@
+# view AndroidManifest.xml #generated:15
+-keep class com.test.protectedCallback.MainActivity { <init>(...); }
+

@@ -1,0 +1,19 @@
+package edu.colorado.droidel.constants
+
+object AndroidConstants {  
+  // interesting classes
+  val ACTIVITY_TYPE = "android.app.Activity"
+  val SERVICE_TYPE = "android.app.Service"
+  val BROADCAST_RECEIVER_TYPE = "android.content.BroadcastReceiver"
+  val CONTENT_PROVIDER_TYPE = "android.content.ContentProvider";
+  val APPLICATION_TYPE = "android.app.Application";        
+  val VIEW_TYPE = "android.view.View"
+    
+  //val FRAGMENT_TYPE = "android.app.Fragment"
+  // apparently much more commonly used because it has better backward compatibility. TODO: need better way to distinguish between the two
+  val FRAGMENT_TYPE = "android.support.v4.app.Fragment"           
+
+  // interesting methods
+  val FIND_VIEW_BY_ID = "findViewById"
+  val FIND_FRAGMENT_BY_ID = "findFragmentById" 
+}
