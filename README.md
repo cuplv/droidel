@@ -24,8 +24,10 @@ Running regression tests
 ------------------------
 
 To be sure everything was installed correctly, it is probably a good idea to run Droidel's regression tests:
+   
+	sbt test:run
 
-   sbt test:run
+These should complete without failing any assertions.
 
 
 Running Droidel
