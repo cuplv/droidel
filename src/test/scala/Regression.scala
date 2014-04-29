@@ -12,7 +12,7 @@ object Regression {
     else {
       val androidJar = new File(args(0))
       assert(androidJar.exists(), s"Couldn't find Android JAR ${androidJar.getAbsolutePath()}")
-      val testPrefix = "src/test/resources/regression/"
+      val testPrefix = s"src${File.separator}test${File.separator}resources${File.separator}regression${File.separator}"
       
       val tests = List("HoistTest1", "HoistTest2", "ProtectedCallback", "ViewLookup", "LifecycleAndInterfaceCallback")
 
