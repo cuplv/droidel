@@ -6,31 +6,39 @@ object Main {
 
   // TODO: improve this by using a real cmd line args tool, adding exta opts
   def main(args: Array[String]) : Unit = {
-    val APP = "app"
-    val ANDROID_JAR = "android_jar"
-    val opts = Map(s"-$APP" -> "Path to top-level directory of Android application",	
-    	           s"-$ANDROID_JAR" -> "Path to Android library JAR to use during analysis")
+    val APP = "-app"
+    val ANDROID_JAR = "-android_jar"
+    val NO_JPHANTOM = "-no-jphantom"
+    val opts = Map(s"$APP" -> "Path to top-level directory of Android application",	
+    	           s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis")
 		  
-    //val flags = Map("-no-jphantom" -> "Don't preprocess app bytecodes with JPhantom")
+    val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom", false))
     
     def printUsage() : Unit = {
-      println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar>")
+      println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
       println("Options:")
       opts.foreach(entry => println(s"${entry._1}\t${entry._2}"))
+      flags.foreach(entry => println(s"${entry._1}\t${entry._1}  default: ${entry._2}"))
     }
  
     if (args.length == 0) printUsage
     else {
       val DASH = "-"
-      def parseArg(opt : String, arg : String, parsed : Map[String,String]) : Map[String,String] = {
+      def parseArg(opt : String, arg : String, args : Map[String,String]) : Map[String,String] = {
         require(opt.startsWith(DASH))
         require(!arg.startsWith(DASH))
-        parsed + (opt.stripPrefix(DASH) -> arg)
+        args + (opt -> arg)
+      }
+      def parseFlag(flag : String, flags : Map[String,Boolean]) : Map[String,Boolean] = {
+	require(flag.startsWith(DASH))
+	flags + (flag -> true)
       }
 
-      def parseArgs(args : List[String], parsed : Map[String,String]) : Map[String,String] = args match {
-        case Nil => parsed
-        case opt :: arg :: args if opts.contains(opt) => parseArgs(args, parseArg(opt, arg, parsed))
+      @annotation.tailrec
+      def parseOpts(args : List[String], parsedArgs : Map[String,String], parsedFlags : Map[String,Boolean]) : (Map[String,String], Map[String,Boolean]) = args match {
+        case Nil => (parsedArgs, parsedFlags)
+        case opt :: arg :: args if opts.contains(opt) => parseOpts(args, parseArg(opt, arg, parsedArgs), parsedFlags)
+        case flag :: args if flags.contains(flag) => parseOpts(args, parsedArgs, parseFlag(flag, parsedFlags))
         case opt :: _ => 
           println(s"Unrecognized option $opt")
 	  printUsage
@@ -42,11 +50,12 @@ object Main {
 	sys.error(s"Couldn't find required arg $arg")
       }
       
-      val parsedOpts = parseArgs(args.toList, Map.empty[String,String])
-      val app = parsedOpts.getOrElse(APP, missingArgError(APP))
-      val androidJar = parsedOpts.getOrElse(ANDROID_JAR, missingArgError(ANDROID_JAR))
+      val (parsedArgs, parsedFlags) = parseOpts(args.toList, Map.empty[String,String], Map.empty[String,Boolean])
+      val app = parsedArgs.getOrElse(APP, missingArgError(APP))
+      val androidJar = parsedArgs.getOrElse(ANDROID_JAR, missingArgError(ANDROID_JAR))
+      val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
 
-      val transformer = new AndroidAppTransformer(app, new File(androidJar))
+      val transformer = new AndroidAppTransformer(app, new File(androidJar), useJPhantom = !noJphantom)
       transformer.transformApp()
     }
   }

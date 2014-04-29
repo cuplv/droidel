@@ -62,7 +62,7 @@ APP
 
 Run Droidel using:
 
-	./droidel.sh -app <APP> -android_jar <JAR>
+	./droidel.sh -app <APP> -android_jar <JAR> [OPTIONS]
 
 or
 
@@ -77,7 +77,7 @@ Droidel generates its harness and stubs at the Java source level and then compil
 Troubleshooting
 ---------------
 Problem: Droidel fails while running JPhantom.
-Solution: JPhantom works for us on Linux and Mac, but sometimes does not work on Windows. Although we do not recommend doing this due to the many benefits of using JPhantom, you can turn off Droidel's use of JPhantom by using the -no-jphantom flag (coming soon).
+Solution: JPhantom works for us on Linux and Mac, but sometimes does not work on Windows. Although we do not recommend doing this due to the many benefits of using JPhantom, you can turn off Droidel's use of JPhantom by using the -no-jphantom flag.
 
 Problem: Droidel fails with "Couldn't compile stub file" or "Couldn't compile harness" message. 
 Solution: Make sure that you are using the appropriate version of the Android JAR for your target application. Check the android:minSdkVersion and/or android:targetSdkVersion in AndroidManifest.xml to see what version of the framework is expected.
