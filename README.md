@@ -41,7 +41,7 @@ The quotes are important. These should complete without failing any assertions.
 
 
 Running Droidel
---------------
+---------------
 
 Droidel takes two inputs: APP, a path to a top level directory of an Android application, and ANDROID_JAR, a path to a JAR containing the desired version of the Android library. Droidel expects the directory for the application to be organized as follows:
 
@@ -73,6 +73,14 @@ Droidel will generate a harness and stubs and produce instrumented copies of the
 The most important output is Droidel's harness class; this is placed in APP/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.class. To use Droidel in a static analysis framework such as WALA or Soot, simply load all of the code in APP/bin/droidel_classes into the analyzer and use GeneratedAndroidHarness.main as the entrypoint for analysis. Because droidel_classes contains all of the Android library bytecodes, there should be no need to load any additional code other than the core Java libraries. For an example of how to build a call graph using Droidel's output in WALA, see how [AndroidCGBuilder] (https://github.com/cuplv/droidel/blob/master/src/main/scala/edu/colorado/droidel/driver/AndroidCGBuilder.scala) is used in the regression [tests](https://github.com/cuplv/droidel/blob/master/src/test/scala/Regression.scala).
 
 Droidel generates its harness and stubs at the Java source level and then compiles them against the application. For convenience, it preserves these artifacts so that they be be manually inspected and modified/recompiled if necessary. The harness source code is located in APP/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.java, and the stub source code is located in APP/bin/droidel_classes/stubs/GeneratedAndroidStubs.java.
+
+From APK to Droidel
+-------------------
+As explained above, Droidel takes Java bytecodes (and some important Android resource files) as input--we cannot currently handle APKs directly (though we are working on this). If you have an APK that you would like to pre-process using Droidel before performing static analysis, we recommend the following steps:
+
+(1) The APK format packages code using Dex bytecodes. Droidel needs these Dex bytecodes to be decompiled to Java bytecodes. We suggest using [Dare](http://siis.cse.psu.edu/dare/) or [dex2jar](https://code.google.com/p/dex2jar/) for decompilation.
+(2) Decode the application manifest and resources of the APK using [apktool](https://code.google.com/p/android-apktool/). This makes the manifest and layout both human- and Droidel-readable.
+(3) Set up these artifacts in the directory structure described above and run Droidel on the resulting directory.
 
 Troubleshooting
 ---------------
