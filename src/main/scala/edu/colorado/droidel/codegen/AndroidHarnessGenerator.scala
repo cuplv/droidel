@@ -191,7 +191,6 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     val timer = new Timer
     timer.start
     if (DEBUG) println("Compiling harness")
-    // TODO: get rid of hardcoding of ANDROID_JAR here
     // compile harness against Android library and the *instrumented* app (since the harness may use types from the app, and our instrumentation
     // may have made callbacks public that were previously private/protected)
     // place resulting .class file in the top-level directory for the instrumented app

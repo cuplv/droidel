@@ -1,5 +1,8 @@
 package edu.colorado.droidel.driver
 
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.io.File
 import java.util.jar.JarFile
 import scala.collection.JavaConversions._
@@ -344,7 +347,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       JavaUtil.mergeJars(Seq(instrumentedJar, originalJar), mergedJarName, duplicateWarning = false)
       val newJar = new File(mergedJarName)
       // rename merged JAR to original JAR name
-      newJar.renameTo(originalJar)
+      //newJar.renameTo(originalJar)
+      Files.move(newJar.toPath(), originalJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
       toInstrument.delete() // cleanup JAR containing classes to instrument
       instrumentedJar.delete() // cleanup instrumented JAR output
     }
@@ -455,7 +459,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       val stubFileName = s"$stubPath.class"
       val stubFile = new File(stubFileName)
       assert(stubFile.exists(), s"Can't find stub $stubPath")
-      stubFile.renameTo(new File(s"$instrumentedBinDir${File.separator}$stubFileName"))
+      //stubFile.renameTo(new File(s"$instrumentedBinDir${File.separator}$stubFileName"))
+      Files.move(stubFile.toPath(), new File(s"$instrumentedBinDir${File.separator}$stubFileName").toPath(), StandardCopyOption.REPLACE_EXISTING)     
     })
     instrumentedBinDir
   }
