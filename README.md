@@ -79,18 +79,20 @@ From APK to Droidel
 As explained above, Droidel takes Java bytecodes (and some important Android resource files) as input--we cannot currently handle APKs directly (though we are working on this). If you have an APK that you would like to pre-process using Droidel before performing static analysis, we recommend the following steps:
 
 (1) The APK format packages code using Dex bytecodes. Droidel needs these Dex bytecodes to be decompiled to Java bytecodes. We suggest using [Dare](http://siis.cse.psu.edu/dare/) or [dex2jar](https://code.google.com/p/dex2jar/) for decompilation.
+
 (2) Decode the application manifest and resources of the APK using [apktool](https://code.google.com/p/android-apktool/). This makes the manifest and layout both human- and Droidel-readable.
+
 (3) Set up these artifacts in the directory structure described above and run Droidel on the resulting directory.
 
 Troubleshooting
 ---------------
-Problem: Droidel fails while running JPhantom.
+Problem: Droidel fails while running JPhantom.    
 Solution: JPhantom works for us on Linux and Mac, but sometimes does not work on Windows. Although we do not recommend doing this due to the many benefits of using JPhantom, you can turn off Droidel's use of JPhantom by using the -no-jphantom flag.
 
-Problem: Droidel fails with "Couldn't compile stub file" or "Couldn't compile harness" message. 
+Problem: Droidel fails with "Couldn't compile stub file" or "Couldn't compile harness" message.  
 Solution: Make sure that you are using the appropriate version of the Android JAR for your target application. Check the android:minSdkVersion and/or android:targetSdkVersion in AndroidManifest.xml to see what version of the framework is expected.
 
-Problem: Droidel fails with "com.ibm.wala.shrikeCT.InvalidClassFileException" error message.
+Problem: Droidel fails with "com.ibm.wala.shrikeCT.InvalidClassFileException" error message.  
 Solution: Droidel uses WALA and Shrike, which cannot currently parse bytecodes produced by the Java 8 compiler. Try switching your default Java version to Java 7 or earlier.
 
 Contributions
