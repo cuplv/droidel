@@ -2,6 +2,7 @@ package edu.colorado.droidel.driver
 
 import scala.collection.JavaConversions._
 import java.io.PrintWriter
+import java.io.File
 import edu.colorado.droidel.util.ClassUtil
 import edu.colorado.droidel.constants.DroidelConstants
 import com.ibm.wala.classLoader.IBytecodeMethod
@@ -39,7 +40,7 @@ class AbsurdityIdentifier(harnessClassName : String) {
     hg.getSuccNodes(k).toSet.map((k : Object) => k.asInstanceOf[InstanceKey])
   
   def formatMethod(m : MethodReference) : String = 
-    ClassUtil.pretty(m).stripPrefix("L").replace('/','.').replace('<','(').replace('>',')')
+    ClassUtil.pretty(m).stripPrefix("L").replace(File.separatorChar,'.').replace('<','(').replace('>',')')
   
   type Absurdity = String
   

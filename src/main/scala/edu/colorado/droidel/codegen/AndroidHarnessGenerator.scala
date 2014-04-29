@@ -53,7 +53,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(className)))
       
     assert(stubPaths.size == 1, s"Assuming that we only generate a single stub for now, but found $stubPaths")
-    val stubClass = stubPaths.head.replace('/', '.')
+    val stubClass = stubPaths.head.replace(File.separatorChar, '.')
 
     val viewClass = makeClass(AndroidConstants.VIEW_TYPE)
     val fragmentClass = makeClass(AndroidConstants.FRAGMENT_TYPE)

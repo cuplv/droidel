@@ -1,5 +1,6 @@
 package edu.colorado.droidel.parser
 
+import java.io.File
 import scala.xml.NodeSeq
 import scala.xml.Elem
 import scala.xml.Node
@@ -31,5 +32,5 @@ abstract class AndroidParser {
     case enabled => enabled.head.text == "true"
   }  
        
-  protected def packageNameToPath(packageName : String) : String = packageName.replace('.', '/')    
+  protected def packageNameToPath(packageName : String) : String = packageName.replace('.', File.separatorChar)    
 }

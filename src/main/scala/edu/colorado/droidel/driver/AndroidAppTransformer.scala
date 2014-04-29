@@ -47,7 +47,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
 
   val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}/${DroidelConstants.HARNESS_CLASS}"
   val harnessMethodName = DroidelConstants.HARNESS_MAIN
-  private val appPath = if (_appPath.endsWith("/")) _appPath else s"${_appPath}/" 
+  private val appPath = if (_appPath.endsWith(File.separator)) _appPath else s"${_appPath}${File.separator}" 
 
   private val libJars = {     
     // load libraries in "the libs" directory if they exist
@@ -106,7 +106,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   // load Android libraries/our stubs addition to the normal analysis scope loading 
   def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
-    val packagePath = manifest.packageName.replace('.', '/')
+    val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
 		  else appBinPath
     val applicationCodePath = s"$binPath/$packagePath"

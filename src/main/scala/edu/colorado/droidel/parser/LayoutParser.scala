@@ -51,7 +51,7 @@ class LayoutParser extends AndroidParser {
     
     def makeMap[T](layoutFileName : String) : Map[String,T] =  
       rFiles.foldLeft (Map.empty[String,T]) ((m, f) => if (f.getName() == layoutFileName) {        
-        val className = f.getAbsolutePath().stripPrefix(s"$binPath/").stripSuffix(".class").replace('/', '.')
+        val className = f.getAbsolutePath().stripPrefix(s"$binPath${File.separator}").stripSuffix(".class").replace(File.separatorChar, '.')
         try {
           val clazz = classLoader.loadClass(className)
           clazz.getDeclaredFields().foldLeft (m) ((m, f) => {
