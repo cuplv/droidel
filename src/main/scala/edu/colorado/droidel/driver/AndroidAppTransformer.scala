@@ -45,7 +45,7 @@ object AndroidAppTransformer {
 class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : Boolean = true, cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
-  val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}/${DroidelConstants.HARNESS_CLASS}"
+  val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
   val harnessMethodName = DroidelConstants.HARNESS_MAIN
   private val appPath = if (_appPath.endsWith(File.separator)) _appPath else s"${_appPath}${File.separator}" 
 
@@ -89,7 +89,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   private val topLevelAppDir = {
     val f = new File(appPath)
     f.getAbsolutePath().replace(f.getParentFile().getAbsolutePath(), "") match {
-      case str if str.startsWith("/") => str.substring(1)
+      case str if str.startsWith(File.separator) => str.substring(1)
       case str => str
     }
   }
@@ -109,7 +109,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
 		  else appBinPath
-    val applicationCodePath = s"$binPath/$packagePath"
+    val applicationCodePath = s"$binPath${File.separator}$packagePath"
     val applicationCodeDir = new File(applicationCodePath)
     assert(applicationCodeDir.exists() && applicationCodeDir.isDirectory(), 
       s"Directory ${applicationCodeDir.getAbsolutePath()} should contain application bytecodes, but does not exist")
@@ -242,7 +242,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     var dummyID = 0
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
-    val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}/${DroidelConstants.HARNESS_CLASS}"
+    val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
     
     val specializedMethodNames = Set( AndroidConstants.FIND_VIEW_BY_ID,  AndroidConstants.FIND_FRAGMENT_BY_ID)
     def isSpecializedMethod(m : MethodReference) : Boolean = specializedMethodNames.contains(m.getName().toString())
@@ -449,13 +449,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
 
     // TODO: just compile them in the right place instead of moving?
     // move stubs in with the apps
-    val stubDir = new File(s"$instrumentedBinDir/${DroidelConstants.STUB_DIR}")
+    val stubDir = new File(s"$instrumentedBinDir${File.separator}${DroidelConstants.STUB_DIR}")
     if (!stubDir.exists()) stubDir.mkdir()
     stubPaths.foreach(stubPath => {
       val stubFileName = s"$stubPath.class"
       val stubFile = new File(stubFileName)
       assert(stubFile.exists(), s"Can't find stub $stubPath")
-      stubFile.renameTo(new File(s"$instrumentedBinDir/$stubFileName"))
+      stubFile.renameTo(new File(s"$instrumentedBinDir${File.separator}$stubFileName"))
     })
     instrumentedBinDir
   }
