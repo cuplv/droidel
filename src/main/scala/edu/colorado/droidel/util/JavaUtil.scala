@@ -23,6 +23,7 @@ object JavaUtil {
   def compile(classes : Iterable[String], options : Iterable[String], printFailureDiagnostics : Boolean = true) : Boolean = {
     require(classes.forall(c => !c.endsWith(".java")))
     val compiler = ToolProvider.getSystemJavaCompiler()
+    assert(compiler != null, "Can't find system Java compiler -- are you using a JRE instead of a JDK?")
     val diagnostics = new DiagnosticCollector[JavaFileObject]
     val fileMgr = compiler.getStandardFileManager(diagnostics, null, null)
     val compilationUnits = fileMgr.getJavaFileObjectsFromStrings(asJavaCollection(classes.map(_ + ".java")))    
