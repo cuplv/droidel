@@ -91,7 +91,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   private val topLevelAppDir = {
     val f = new File(appPath)
-    f.getAbsolutePath().replace(f.getParentFile().getAbsolutePath(), "") match {
+    val parentPath = f.getParentFile() match {
+      case null => ""
+      case parentFile => parentFile.getAbsolutePath()
+    }
+    f.getAbsolutePath().replace(parentPath, "") match {
       case str if str.startsWith(File.separator) => str.substring(1)
       case str => str
     }
