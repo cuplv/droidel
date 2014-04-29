@@ -195,7 +195,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     // compile harness against Android library and the *instrumented* app (since the harness may use types from the app, and our instrumentation
     // may have made callbacks public that were previously private/protected)
     // place resulting .class file in the top-level directory for the instrumented app
-    val compilerOptions = List("-cp", s".:${androidJarPath}:$instrumentedBinDir", "-d", instrumentedBinDir)
+    val compilerOptions = List("-cp", s".${File.pathSeparator}${androidJarPath}${File.pathSeparator}$instrumentedBinDir", "-d", instrumentedBinDir)
     val compiled = JavaUtil.compile(List(harnessPath), compilerOptions)
     timer.printTimeTaken("Compiling harness")
     assert(compiled, s"Couldn't compile harness $harnessPath")        

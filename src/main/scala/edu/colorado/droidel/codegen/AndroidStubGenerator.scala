@@ -207,7 +207,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     writer.endType() // end class            
     
     // write out stub to file
-    val stubPath = s"$STUB_DIR/$stubClassName"
+    val stubPath = s"$STUB_DIR${File.separator}$stubClassName"
     val fileWriter = new FileWriter(s"${stubPath}.java")
     if (DEBUG) println(s"Generated stub: ${strWriter.toString()}")
     fileWriter.write(strWriter.toString())    
@@ -217,7 +217,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     fileWriter.close()
     
     // compile stub against Android library *and* app (since it may use types from the app)
-    val compilerOptions = List("-cp", s"${androidJarPath}:$appBinPath")
+    val compilerOptions = List("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath")
     val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
     assert(compiled, s"Couldn't compile stub file $stubPath")
     // TODO: pass path of generated stubs out for easier cleanup later
