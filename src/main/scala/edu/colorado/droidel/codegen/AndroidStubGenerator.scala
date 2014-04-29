@@ -178,9 +178,11 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     makeIdSwitchForLayoutElements(views)
     writer.endMethod() // end findViewById
     
-    writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
-    makeIdSwitchForLayoutElements(fragments)
-    writer.endMethod() // end findFragmentById
+    if (!fragments.isEmpty()) {
+      writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
+      makeIdSwitchForLayoutElements(fragments)
+      writer.endMethod() // end findFragmentById
+    }
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
