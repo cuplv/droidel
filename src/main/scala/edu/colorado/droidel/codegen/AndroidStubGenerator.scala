@@ -116,7 +116,9 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
       })
       
     val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
-    val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
+    val finalAllocs = allocs1
+    // not dealing with fragments for now
+    //val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
         
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
@@ -137,15 +139,17 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
 
     // emit a field for each statically declared View and Fragment
     viewFields.foreach(v => writer.emitField(ClassUtil.deWalaifyClassName(v.typ), v.name, EnumSet.of(PRIVATE, STATIC)))
-    fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PRIVATE, STATIC)))
+    //fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PRIVATE, STATIC)))
     writer.emitEmptyLine()
     
-    writer.beginInitializer(true) // end static
+    writer.beginInitializer(true) // begin static
+    writer.beginControlFlow("try") // begin try
     // emit initialization of helper locals. need to reverse because allocs are prepended to list
     finalAllocs.reverse.foreach(a => writer.emitStatement(a))
     // emit initialization of View and Fragment fields
     viewFields.foreach(v => writer.emitStatement(s"${v.name} = ${v.inhabitant}"))
-    fragmentFields.foreach(f => writer.emitStatement(s"${f.name} = ${f.inhabitant}"))
+    //fragmentFields.foreach(f => writer.emitStatement(s"${f.name} = ${f.inhabitant}"))
+    
     // TODO: disabling for now, causing too many problems. in the future, look up the type and see if it has the setId/setText method
     // TODO: do this for Fragments too
     // emit writes to View id's if applicable        
@@ -163,7 +167,11 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
         writer.emitStatement(v.name + s".setText($QUOTE${escaped}$QUOTE)")
       case None => ()
     })*/    
-    writer.endInitializer() // begin static          
+    
+    writer.endControlFlow() // end try
+    writer.beginControlFlow("catch (Exception e)") // begin catch   
+    writer.endControlFlow() // end catch
+    writer.endInitializer() // end static          
     writer.emitEmptyLine()
     
     //def makeIdSwitchForLayoutElements(elems : Iterable[LayoutElement]) : Unit = {
@@ -210,7 +218,8 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     // emit specialized getters for each View and Fragment with a statically known id
     val specializedGetters = {
       val viewMap = emitSpecializedGettersForLayoutElems(viewFields, "getView", specializedGetterMap)
-      emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
+      viewMap
+      //emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
     }
         
     writer.endType() // end class            
