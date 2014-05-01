@@ -25,7 +25,7 @@ import edu.colorado.droidel.parser.LayoutView
 import edu.colorado.droidel.parser.LayoutFragment
 
 object AndroidStubGenerator {
-  protected val DEBUG = true
+  protected val DEBUG = false
 }
 
 class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
@@ -166,7 +166,8 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     writer.endInitializer() // begin static          
     writer.emitEmptyLine()
     
-    def makeIdSwitchForLayoutElements(elems : Iterable[LayoutElement]) : Unit = {
+    //def makeIdSwitchForLayoutElements(elems : Iterable[LayoutElement]) : Unit = {
+    def makeIdSwitchForLayoutElements(elems : Iterable[InhabitedLayoutElement]) : Unit = {
       writer.beginControlFlow("switch (id)") // begin switch on id's
       // one switch case per statically declared element
       elems.foreach(v => v.id match {
@@ -180,14 +181,15 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     
     // emit findViewById method() that can return any of the child View's
     writer.beginMethod(VIEW_TYPE, FIND_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findViewById
-    makeIdSwitchForLayoutElements(views)
+    makeIdSwitchForLayoutElements(viewFields)
     writer.endMethod() // end findViewById
     
-    if (!fragments.isEmpty()) {
+    // no fragments for now
+    /*if (!fragments.isEmpty()) {
       writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
       makeIdSwitchForLayoutElements(fragments)
       writer.endMethod() // end findFragmentById
-    }
+    }*/
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
