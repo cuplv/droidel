@@ -27,7 +27,9 @@ import LayoutParser._
 
 
 object LayoutParser {
-  val DEBUG = false
+  private val DEBUG = false
+  // special ID associated with unknown layout
+  val UNKNOWN_LAYOUT_ID = -1
 }
 
 class LayoutParser extends AndroidParser {    
@@ -90,9 +92,15 @@ class LayoutParser extends AndroidParser {
   
   /** @return (manifest representation, resources map) */
   def parseAndroidLayout(appDir : File, binDir : File, manifest : AndroidManifest, layoutIdClassMap : Map[Int,Set[IClass]]) : Map[IClass,Set[LayoutElement]] = {
-    require(appDir.isDirectory())              
+    require(appDir.isDirectory())
+    
+    if (layoutIdClassMap.isEmpty) {
+      println("Warning: layoutIdClassMap is empty")
+      if (DEBUG) sys.error("Empty layoutIdClass map is nonsensical. Exiting")
+    }
     
     val (idMap, layoutMap, strMap) = makeResourceMaps(appDir, binDir)    
+    
     // TODO: parse XML other than res/layout?
     val layoutDir = new File(s"${appDir}/res/layout")
     assert(layoutDir.exists(), s"Couldn't find res directory ${layoutDir.getAbsolutePath}")
@@ -173,17 +181,29 @@ class LayoutParser extends AndroidParser {
       
       val declFileName = declFile.stripSuffix(".xml")
       if (layoutMap.contains(declFileName)) {
-        val layoutId = layoutMap(declFileName)
+        val layoutId = layoutMap(declFileName)                      
+        
         // absence of a mapping for key layoutId here just means that we found a declared layout,
         // but we did not find any classes that use that layout. this is a common situation,
         // especially when apps use libraries that declare many layouts
-        val layoutClasses = layoutIdClassMap.getOrElse(layoutId, Set.empty[IClass])
-        layoutClasses.foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))
+        val layoutClasses = layoutIdClassMap.getOrElse(layoutId, Set.empty[IClass])        
+        // for some classes, we may not have been able to resolve what layout they are associated with
+        // find these classes and conservatively associate them with this particular layout
+        val unknownLayoutClasses = if (layoutIdClassMap.contains(UNKNOWN_LAYOUT_ID)) {
+          layoutIdClassMap(UNKNOWN_LAYOUT_ID)  
+        } else Set.empty[IClass]
+        // associate known and unknown classes with this layout
+        (layoutClasses ++ unknownLayoutClasses).foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))
       } else {
         if (DEBUG) println(s"Warning: couldn't find ID for $declFile")
         map
       }
     })
+    
+    if (resourcesMap.isEmpty) {
+      println("Warning: resources map empty")
+      if (DEBUG) sys.error("Empty resources map is nonsensical. Exiting")
+    } 
     
     resourcesMap
   }

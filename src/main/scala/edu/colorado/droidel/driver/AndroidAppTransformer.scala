@@ -171,7 +171,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       m.getName().toString() == SET_CONTENT_VIEW 
     def isInflate(m : MethodReference) : Boolean = 
       m.getName().toString() == INFLATE && m.getNumberOfParameters() >= 2 
-        
+    
     cha.foldLeft (Map.empty[Int,Set[IClass]]) ((map, c) => 
       if (!ClassUtil.isLibrary(c)) c.getDeclaredMethods.foldLeft (map) ((map, m) => {
         val ir = IRUtil.makeIR(m)
@@ -185,7 +185,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                   val viewId = tbl.getIntValue(i.getUse(use))
                   // note that layouts can be reused across multiple classes, and a single class can be associated with multiple layouts
                   Util.updateSMap(map, viewId, c)
-                case None => map // TODO: not setting layout using a constant. possibly dynamically created. handle? 
+                case None => 
+                  // setting layout, but not using a constant. conservatively assume that class can be associated with any layout
+                  // the layout parser will handle this by mapping each of these classes to all layouts that it finds
+                  // TODO: layout can also be dynamically declared. this hack doesn't handle that case
+                  Util.updateSMap(map, LayoutParser.UNKNOWN_LAYOUT_ID, c)
               }
             case _ => map        
           })
