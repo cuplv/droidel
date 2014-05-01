@@ -166,7 +166,9 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
                                                           field.getName().toString(),
                                                           EnumSet.of(PUBLIC, STATIC)))    
     writer.emitEmptyLine()                                                          
-    writer.beginMethod("void", DroidelConstants.HARNESS_MAIN, EnumSet.of(PUBLIC, STATIC)) // begin main harness method
+    writer.beginMethod("void", DroidelConstants.HARNESS_MAIN, EnumSet.of(PUBLIC, STATIC)) // begin main harness method    
+    // wrap everything in a try/catch block so the Java compiler doesn't complain
+    writer.beginControlFlow("try") // begin try    
     // emit allocations. need to reverse because the list of allocations was populated by prepending the most recent allocation
     // (which may in turn depend on other allocations), so we want to go last to first
     finalAllocStatements.reverse.foreach(alloc => writer.emitStatement(alloc))
@@ -175,7 +177,10 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     // emit implemented interface callbacks on framework-created types
     frameworkCreatedInterfaceCbCalls.foreach(invoke => writer.emitStatement(invoke))
     // emit instrumentation var callback invocations
-    instrumentationVarCbCalls.foreach(invoke => writer.emitStatement(invoke))    
+    instrumentationVarCbCalls.foreach(invoke => writer.emitStatement(invoke))
+    writer.endControlFlow() // end try
+    writer.beginControlFlow("catch (Exception e)") // begin catch
+    writer.endControlFlow() // end catch    
     writer.endMethod() // end main harness method
     writer.endType() // end class    
     
