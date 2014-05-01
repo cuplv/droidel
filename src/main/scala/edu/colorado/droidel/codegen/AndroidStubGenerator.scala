@@ -100,14 +100,19 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     val inhabitor = new TypeInhabitor    
   
     def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
-      elems.foldLeft (List.empty[InhabitedLayoutElement],allocs) ((pair, v) => {
-        val elemType = getTypeForAndroidClassName(v.typ)    
-        val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
-        val id = v match {
-          case v : LayoutView => v.id 
-          case _ => None
-        }
-        (new InhabitedLayoutElement(v.name, id, inhabitant, elemType) :: pair._1, allocs)
+      elems.foldLeft (List.empty[InhabitedLayoutElement], allocs) ((pair, v) => {       
+        val elemType = getTypeForAndroidClassName(v.typ)
+        cha.lookupClass(elemType) match {
+          case null => pair
+          case clazz if ClassUtil.isInnerOrEnum(clazz) => pair
+          case _ => 
+            val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
+            val id = v match {
+              case v : LayoutView => v.id 
+              case _ => None
+            }
+            (new InhabitedLayoutElement(v.name, id, inhabitant, elemType) :: pair._1, allocs)
+        }        
       })
       
     val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
