@@ -171,12 +171,18 @@ class LayoutParser extends AndroidParser {
       val xml = XML.loadFile(xmlFile)
       val layoutElems = parseLayoutElementsRec(List(xml))
       
-      val layoutId = layoutMap(declFile.stripSuffix(".xml"))
-      // absence of a mapping for key layoutId here just means that we found a declared layout,
-      // but we did not find any classes that use that layout. this is a common situation,
-      // especially when apps use libraries that declare many layouts
-      val layoutClasses = layoutIdClassMap.getOrElse(layoutId, Set.empty[IClass])
-      layoutClasses.foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))      
+      val declFileName = declFile.stripSuffix(".xml")
+      if (layoutMap.contains(declFileName)) {
+        val layoutId = layoutMap(declFileName)
+        // absence of a mapping for key layoutId here just means that we found a declared layout,
+        // but we did not find any classes that use that layout. this is a common situation,
+        // especially when apps use libraries that declare many layouts
+        val layoutClasses = layoutIdClassMap.getOrElse(layoutId, Set.empty[IClass])
+        layoutClasses.foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))
+      } else {
+        if (DEBUG) println(s"Warning: couldn't find ID for $declFile")
+        map
+      }
     })
     
     resourcesMap
