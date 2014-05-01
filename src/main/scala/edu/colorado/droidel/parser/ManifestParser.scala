@@ -3,6 +3,11 @@ package edu.colorado.droidel.parser
 import scala.xml.Node
 import java.io.File
 import scala.xml.XML
+import ManifestParser._
+
+object ManifestParser {
+  val DEBUG = false
+}
 
 class ManifestParser extends AndroidParser {
   def parseAndroidManifest(appDir : File) : AndroidManifest = {
@@ -48,8 +53,10 @@ class ManifestParser extends AndroidParser {
       }
     )
     // check that there's only one main Activity
-    val numMainActs = activities.filter(act => act.isMain).size    
-    assert(numMainActs == 1, s"Expected exactly one main Activity, but found $numMainActs") 
+    if (DEBUG) {
+      val numMainActs = activities.filter(act => act.isMain).size    
+      assert(numMainActs == 1, s"Expected exactly one main Activity, but found $numMainActs")
+    }
       
     // TODO: parse Service's, ContentProvider's, e.t.c
     /*val receivers = (app \ "receiver")
