@@ -25,7 +25,7 @@ import edu.colorado.droidel.parser.LayoutView
 import edu.colorado.droidel.parser.LayoutFragment
 
 object AndroidStubGenerator {
-  protected val DEBUG = false
+  protected val DEBUG = true
 }
 
 class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
@@ -220,6 +220,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     
     // compile stub against Android library *and* app (since it may use types from the app)
     val compilerOptions = List("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath")
+    if (DEBUG) println(s"Running javac ${compilerOptions(0)} ${compilerOptions(1)}")
     val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
     assert(compiled, s"Couldn't compile stub file $stubPath")
     // TODO: pass path of generated stubs out for easier cleanup later
