@@ -1,8 +1,9 @@
 package edu.colorado.droidel.driver
 
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
+// these require Java 7
+//import java.nio.file.Files
+//import java.nio.file.Path
+//import java.nio.file.StandardCopyOption
 import java.io.File
 import java.util.jar.JarFile
 import scala.collection.JavaConversions._
@@ -351,8 +352,10 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       JavaUtil.mergeJars(Seq(instrumentedJar, originalJar), mergedJarName, duplicateWarning = false)
       val newJar = new File(mergedJarName)
       // rename merged JAR to original JAR name
-      //newJar.renameTo(originalJar)
-      Files.move(newJar.toPath(), originalJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
+      // commenting out because Java.nio.Files requires Java 7
+      // Files.move(newJar.toPath(), originalJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
+      if (originalJar.exists()) originalJar.delete()
+      newJar.renameTo(originalJar)      
       toInstrument.delete() // cleanup JAR containing classes to instrument
       instrumentedJar.delete() // cleanup instrumented JAR output
     }
@@ -462,9 +465,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     stubPaths.foreach(stubPath => {
       val stubFileName = s"$stubPath.class"
       val stubFile = new File(stubFileName)
-      assert(stubFile.exists(), s"Can't find stub $stubPath")
-      //stubFile.renameTo(new File(s"$instrumentedBinDir${File.separator}$stubFileName"))
-      Files.move(stubFile.toPath(), new File(s"$instrumentedBinDir${File.separator}$stubFileName").toPath(), StandardCopyOption.REPLACE_EXISTING)     
+      assert(stubFile.exists(), s"Can't find stub $stubPath")      
+      //Files.move(stubFile.toPath(), new File(s"$instrumentedBinDir${File.separator}$stubFileName").toPath(), StandardCopyOption.REPLACE_EXISTING)     
+      val newStubFile = new File(s"$instrumentedBinDir${File.separator}$stubFileName")
+      if (newStubFile.exists()) newStubFile.delete()
+      stubFile.renameTo(newStubFile)
     })
     instrumentedBinDir
   }
