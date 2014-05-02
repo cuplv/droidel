@@ -120,17 +120,24 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
               // special case to handle generic methods, when we'll have one method with a parameter that is Object and one with a more specific type
               // TODO: this is a big hack. do better
               val objName = TypeReference.JavaLangObject.getName()
-              val lessGeneralMethods = possibleOverrides.filter(m => m.getReturnType().getName() != objName && 
-                                                                     getAllParameterTypes(m).forall(typ => typ.getName() != objName))
-              assert(!lessGeneralMethods.isEmpty, s"Ambiguous method choice $possibleOverrides")
-              lessGeneralMethods.head // pick one arbitrarily
-            } else m
-            // TODO: WALA disagrees with javap regarding whether some methods are static. investigate this
-            //Lkik/android/chat/KikApplication, a(Ljava/io/File;            
-            assert(!toInhabit.isStatic(), "Trying to inhabit static method " + toInhabit)
-            //println("inhabiting " + toInhabit.getName() + " " + toInhabit + " static? " + toInhabit.isStatic())
-            val (call, allocs) = inhabitor.inhabitFunctionCall(toInhabit, Some(varName), cha, l._2)
-            (call :: l._1, allocs)
+              val lessGeneralMethods = possibleOverrides.filter(overrideMethod => overrideMethod.getReturnType().getName() != objName && 
+                                                                getAllParameterTypes(overrideMethod).forall(typ => typ.getName() != objName) && {
+                (0 to m.getNumberOfParameters() - 1).forall(i => // check for covariance in parameter types  
+                  CHAUtil.isAssignableFrom(m.getParameterType(i), overrideMethod.getParameterType(i), cha)                 
+                )
+              })
+              if (lessGeneralMethods.isEmpty) None
+              else Some(lessGeneralMethods.head) // pick one arbitrarily               
+            } else Some(m)
+            
+            toInhabit match {
+              case Some(toInhabit) =>
+                 val (call, allocs) = inhabitor.inhabitFunctionCall(toInhabit, Some(varName), cha, l._2)
+                 (call :: l._1, allocs)
+              case None =>
+                 if (DEBUG) sys.error(s"Couldn't find override for $m in $frameworkCreatedClass")
+                 l
+            }         
           })
         })
     })    
