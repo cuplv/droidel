@@ -399,8 +399,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       val typeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, ClassUtil.walaifyClassName(a.getPackageQualifiedName))
        val clazz = cha.lookupClass(typeRef)
        if (clazz == null || !allFrameworkCreatedTypes.contains(clazz)) {
-         println(s"Activity ${a.getPackageQualifiedName} Typeref $typeRef IClass $clazz declared in manifest, but is not in framework-created types map $frameworkCreatedTypesMap")
-         if (!useJPhantom) println(s"Recommended: use JPhantom! It is likely that $clazz is being discarded due to a missing superclass that JPhantom can generate")
+         println(s"Activity ${a.getPackageQualifiedName} Typeref $typeRef IClass $clazz declared in manifest, but is not in framework-created types map")
+         if (!useJPhantom) println(s"Recommended: use JPhantom! It is likely that $typeRef is being discarded due to a missing superclass that JPhantom can generate")
          if (DEBUG) sys.error("Likely unsoundness, exiting")
        }
     })      

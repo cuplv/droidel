@@ -112,9 +112,10 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
           // TODO: somewhat of a hack -- only invoke callback methods that our class directly overrides. 
           // this can miss callbacks that an application-scope superclass overrides
           val frameworkMethodsByName = frameworkCreatedClass.getDeclaredMethods().groupBy(m => m.getName())
-          interfaceType.getDeclaredMethods().filter(m => m.isPublic() && CHAUtil.mayOverride(m, frameworkCreatedClass, cha)).foldLeft (l) ((l, m) => {
+          interfaceType.getDeclaredMethods().filter(m => m.isPublic() && !m.isStatic && CHAUtil.mayOverride(m, frameworkCreatedClass, cha)).foldLeft (l) ((l, m) => {
             val possibleOverrides = frameworkMethodsByName(m.getName())
-                                    .filter(possibleOverride => possibleOverride.getNumberOfParameters() == m.getNumberOfParameters())
+                                    .filter(possibleOverride => !possibleOverride.isStatic() &&
+                                              possibleOverride.getNumberOfParameters() == m.getNumberOfParameters())
             val toInhabit = if (possibleOverrides.size > 1) {
               // special case to handle generic methods, when we'll have one method with a parameter that is Object and one with a more specific type
               // TODO: this is a big hack. do better
@@ -124,6 +125,10 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
               assert(!lessGeneralMethods.isEmpty, s"Ambiguous method choice $possibleOverrides")
               lessGeneralMethods.head // pick one arbitrarily
             } else m
+            // TODO: WALA disagrees with javap regarding whether some methods are static. investigate this
+            //Lkik/android/chat/KikApplication, a(Ljava/io/File;            
+            assert(!toInhabit.isStatic(), "Trying to inhabit static method " + toInhabit)
+            //println("inhabiting " + toInhabit.getName() + " " + toInhabit + " static? " + toInhabit.isStatic())
             val (call, allocs) = inhabitor.inhabitFunctionCall(toInhabit, Some(varName), cha, l._2)
             (call :: l._1, allocs)
           })
