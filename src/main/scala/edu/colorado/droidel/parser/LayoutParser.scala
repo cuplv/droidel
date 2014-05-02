@@ -45,6 +45,7 @@ class LayoutParser extends AndroidParser {
     // because these files may not only be in the app package. if the app uses libraries with layouts, there 
     // will be generated resource files for the libraries as well. we don't want to miss these
     val rFiles = Util.getAllFiles(binDir, f => f.getName().startsWith("R$") && f.getName().endsWith(".class"))
+    if (rFiles.isEmpty) println("Warning: Can't find R$id.class, R$layout.class, etc. This app is likely obfuscated.")
     
     val binURL = binDir.toURI().toURL()                
     val classLoader = URLClassLoader.newInstance(Array(binURL))
@@ -56,6 +57,7 @@ class LayoutParser extends AndroidParser {
         val className = f.getAbsolutePath().stripPrefix(s"$binPath${File.separator}").stripSuffix(".class").replace(File.separatorChar, '.')
         try {
           val clazz = classLoader.loadClass(className)
+          if (DEBUG) println(s"Loaded class file $clazz; reading constants")
           clazz.getDeclaredFields().foldLeft (m) ((m, f) => {
             val name = f.getName()
             val intVal = f.get(f.getType()).asInstanceOf[T] 
@@ -63,7 +65,7 @@ class LayoutParser extends AndroidParser {
           })
         } catch {
           case e : ClassNotFoundException => 
-            println(s"Error: couldn't load $className")
+            if (DEBUG) println(s"Error: couldn't load $className")
             m
           case e : Throwable => throw e
         }
@@ -80,10 +82,36 @@ class LayoutParser extends AndroidParser {
         
       } else Map.empty[String,String]
     }
+    
+    // extend an existing ID and layout map with statically declared ID's from public.xml
+    def extendIdAndLayoutMaps(idMap : Map[String,Int], layoutMap : Map[String,Int]) : (Map[String,Int], Map[String,Int]) = {
+      val publicDir = new File(s"$appDir/res/values/public.xml")
+      def hexStrToDecimalInt(hexStr : String) : Int = {
+        val ZERO_X = "0x"
+        require(hexStr.startsWith(ZERO_X))
+        // Java doesn't like parsing hexes that start with 0x. strip it out
+        val stripped = hexStr.replace(ZERO_X, "")
+        val radix = 16 // this is a hex value, so use base 16
+        Integer.parseInt(stripped, radix)
+      } 
+      
+      if (publicDir.exists()) {
+        val publicXMLFile = XML.loadFile(publicDir)
+        (publicXMLFile \\ "public").foldLeft (idMap, layoutMap) ((pair, e) => {
+          val (idMap, layoutMap) = pair
+          val typ = e.attribute("type").head.text
+          val name = e.attribute("name").head.text           
+          val id = hexStrToDecimalInt(e.attribute("id").head.text)
+          if (typ == "layout") (idMap, layoutMap + (name -> id))
+          else if (typ == "id") (idMap + (name -> id), layoutMap)
+          else pair
+        })
+      } else (idMap, layoutMap)
+    }
    
     val strMap = makeStringMap
-    val idMap = makeMap[Int](makeLayoutFileName("id"))    
-    val layoutMap = makeMap[Int](makeLayoutFileName("layout"))
+    val (idMap, layoutMap) = extendIdAndLayoutMaps(makeMap[Int](makeLayoutFileName("id")), 
+                                                   makeMap[Int](makeLayoutFileName("layout")))
     (idMap, layoutMap, strMap)        
   }
   
@@ -98,8 +126,8 @@ class LayoutParser extends AndroidParser {
       println("Warning: layoutIdClassMap is empty")
       if (DEBUG) sys.error("Empty layoutIdClass map is nonsensical. Exiting")
     }
-    
-    val (idMap, layoutMap, strMap) = makeResourceMaps(appDir, binDir)    
+        
+    val (idMap, layoutMap, strMap) = makeResourceMaps(appDir, binDir) 
     
     // TODO: parse XML other than res/layout?
     val layoutDir = new File(s"${appDir}/res/layout")
