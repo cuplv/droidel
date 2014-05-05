@@ -101,9 +101,9 @@ We welcome contributions to Droidel -- please do not hesitate to send a pull req
 
 Eclipse
 -------
-To build Droidel in Eclipse, make sure you have installed the sbt eclipse [plugin](https://github.com/typesafehub/sbteclipse/wiki/Installing-sbteclipse) and add the following two lines to Droidel's build.sbt:
+To build Droidel in Eclipse, make sure you have installed the SBT Eclipse [plugin](https://github.com/typesafehub/sbteclipse/wiki/Installing-sbteclipse) and add the following two lines to Droidel's build.sbt:
 
-   https://github.com/typesafehub/sbteclipse/wiki/Installing-sbteclipse
+   EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource
    EclipseKeys.withSource := true
 
 Finally, run 
