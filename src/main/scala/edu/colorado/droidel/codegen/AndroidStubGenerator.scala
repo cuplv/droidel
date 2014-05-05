@@ -28,6 +28,7 @@ object AndroidStubGenerator {
   protected val DEBUG = false
 }
 
+// TODO: support Fragments here
 class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
   // rather than keep track of layouts and view hierarchies, smush them all together into one giant hierarchy
   // this creates complications for things like duplicate id's
