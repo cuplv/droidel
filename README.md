@@ -97,7 +97,22 @@ Solution: Droidel uses WALA and Shrike, which cannot currently parse bytecodes p
 
 Contributions
 -------------
-We welcome contributions to Droidel -- please do not hesitate to send a pull request or ask to be added as a contributor. Send questions and comments about Droidel to samuel.blackshear@colorado.edu.
+We welcome contributions to Droidel -- please do not hesitate to send a pull request or ask to be added as a contributor. Send questions and comments about Droidel to samuel.blackshear@colorado.edu.   
+
+Eclipse
+-------
+To build Droidel in Eclipse, make sure you have installed the sbt eclipse [plugin](https://github.com/typesafehub/sbteclipse/wiki/Installing-sbteclipse) and add the following two lines to Droidel's build.sbt:
+
+   https://github.com/typesafehub/sbteclipse/wiki/Installing-sbteclipse
+   EclipseKeys.withSource := true
+
+Finally, run 
+    
+    sbt eclipse
+
+to generate an Eclipse project.
+
+
 
 What Android features does Droidel handle?
 ------------------------------------------
