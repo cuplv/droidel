@@ -51,7 +51,7 @@ APP
 +-- bin/
 |   +-- classes/
 |       +-- bytecodes
-|-- res/
++-- res/
 |   +-- layout/
 |       +-- layout XML files
 +-- libs/
