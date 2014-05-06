@@ -43,7 +43,7 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, har
     options.setSelector(makeClassTargetSelector)
     options.setSelector(makeMethodTargetSelector)    
     new WalaAnalysisResults(cgBuilder.makeCallGraph(options, null),
-			    cgBuilder.getPointerAnalysis())
+			                      cgBuilder.getPointerAnalysis())
   }     
   
   def makeEntrypoints() : Iterable[Entrypoint] = {  

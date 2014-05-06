@@ -4,7 +4,8 @@
    - "cd WALA"
    - "mvn clean install -DskipTests=true"
    - "cd .."
+   - "wget http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar"
  scala:
    - "2.10.2"
  jdk:
-   - openjdk6
+   - openjdk7
