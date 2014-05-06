@@ -104,14 +104,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses = {
-    Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
+    Source.fromURL(getClass.getResource(s"${File.separator}${DroidelConstants.CALLBACK_LIST}"))
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
-      set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
-    
-    //val cbFile = new File(DroidelConstants.CALLBACK_LIST_PATH)
-    //if (cbFile.exists()) Source.fromFile(cbFile).getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
-     // set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line))
-    //) else sys.error(s"Couldn't find callback list ${DroidelConstants.CALLBACK_LIST}; exiting")
+      set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))   
   }  
 
   val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))  
@@ -133,15 +128,20 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       Some(f)
     } else None
-
    
+    val manifestUsedActivities = manifest.activities.foldLeft (Set.empty[String]) ((s, a) => 
+      s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
+    
     // load application code using Application class loader and all library code using Primordial class loader
     // we decide which code is application code using the package path from the application manifest
     val allFiles = Util.getAllFiles(new File(binPath)).filter(f => !f.isDirectory())
     allFiles.foreach(f => assert(!f.getName().endsWith(".jar"), 
                                  s"Not expecting JAR ${f.getAbsolutePath()} in app bin directory"))
-    allFiles.foreach(f => if (f.getName().endsWith(".class")) {      
-      if (f.getAbsolutePath().contains(applicationCodePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
+    allFiles.foreach(f => if (f.getName().endsWith(".class")) {   
+      // make sure code in the manifest-declared app package is loaded as application
+      if (f.getAbsolutePath().contains(applicationCodePath) ||
+          // if we have library code that is declared as an application Activity in the manifest, load in in the Application scope
+          manifestUsedActivities.contains(f.getAbsolutePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       // ensure the harness class (if any) is only loaded as application; we don't want to reload it as primordial
       else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath()) analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
     })
