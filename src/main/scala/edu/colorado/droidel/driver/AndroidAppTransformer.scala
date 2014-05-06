@@ -104,10 +104,14 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses = {
-    val cbFile = new File(DroidelConstants.CALLBACK_LIST_PATH)
-    if (cbFile.exists()) Source.fromFile(cbFile).getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
-      set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line))
-    ) else sys.error(s"Couldn't find callback list ${DroidelConstants.CALLBACK_LIST_PATH}; exiting")
+    Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
+    .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
+      set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
+    
+    //val cbFile = new File(DroidelConstants.CALLBACK_LIST_PATH)
+    //if (cbFile.exists()) Source.fromFile(cbFile).getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
+     // set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line))
+    //) else sys.error(s"Couldn't find callback list ${DroidelConstants.CALLBACK_LIST}; exiting")
   }  
 
   val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))  

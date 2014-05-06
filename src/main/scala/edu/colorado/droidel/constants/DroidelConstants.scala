@@ -6,7 +6,8 @@ import java.io.File
 
 object DroidelConstants {
   // path to list of special callback interface classes
-  val CALLBACK_LIST_PATH = getClass.getResource("/AndroidCallbacks.txt").getFile()      
+  //val CALLBACK_LIST_PATH = getClass.getResource("/AndroidCallbacks.txt").getFile()      
+  val CALLBACK_LIST = "AndroidCallbacks.txt"
   // path to libraries in canonical layout of Android project
   val LIB_SUFFIX = "libs"
   // path to binaries in canonical layout of Android project    
