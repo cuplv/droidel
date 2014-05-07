@@ -52,7 +52,8 @@ class BytecodeInstrumenter {
     def instrumentRec() : Unit = instrumenter.nextClass() match {
       case null => ()
       case curClass =>
-        val className = curClass.getInputName()
+        //val className = curClass.getInputName() // deprecated in more recent versions of WALA
+        val className = s"${curClass.getReader().getName()}.class"
         val toInstrument = instrumentationMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, Iterable[FieldReference])]])
         val toStub = stubMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, MethodReference)]])
         val toMakePublic = cbsToMakePublic.getOrElse(className, Set.empty[IMethod])        
