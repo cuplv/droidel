@@ -13,13 +13,10 @@ Installing Droidel requires sbt, maven, and ant. Droidel depends on [WALA](https
     cd WALA
     mvn clean install -DskipTests=true
 
-(2) Download and build JPhantom into the droidel/lib/ directory (from the droidel/ directory, do): 
-
-    mkdir -p lib
+(2) Download and build unmanaged dependencies using the provided script:
+    
     cd lib
-    git clone https://github.com/gbalats/jphantom.git
-    cd jphantom
-    ant
+    ./install_deps.sh
 
 (3) Build Droidel (from the droidel/ directory, do):
 
@@ -43,7 +40,7 @@ The quotes are important. These should complete without failing any assertions.
 Running Droidel
 ---------------
 
-Droidel takes two inputs: APP, a path to a top level directory of an Android application, and ANDROID_JAR, a path to a JAR containing the desired version of the Android library. Droidel expects the directory for the application to be organized as follows:
+Droidel takes two inputs: APP, a path to an APK file or the top level directory of an Android application, and ANDROID_JAR, a path to a JAR containing the desired version of the Android library. Given an application directory as input, Droidel expects the directory for the application to be organized as follows:
 
 <pre>
 APP
@@ -59,6 +56,7 @@ APP
 </pre>
 
 
+If Droidel is given an APK, it decodes the application manifest and resources using [apktool](http://code.google.com/p/android-apktool/) and decompiles the DEX bytecodes to Java bytecodes using [dex2jar](http://code.google.com/p/dex2jar/). We plan to add support for decompiling using [Dare](http://siis.cse.psu.edu/dare/) in the near future. Droidel also organizes the decoded apk into the directory format outlined above.
 
 Run Droidel using:
 
@@ -74,23 +72,10 @@ The most important output is Droidel's harness class; this is placed in APP/bin/
 
 Droidel generates its harness and stubs at the Java source level and then compiles them against the application. For convenience, it preserves these artifacts so that they be be manually inspected and modified/recompiled if necessary. The harness source code is located in APP/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.java, and the stub source code is located in APP/bin/droidel_classes/stubs/GeneratedAndroidStubs.java.
 
-From APK to Droidel
--------------------
-As explained above, Droidel takes Java bytecodes (and some important Android resource files) as input--we cannot currently handle APKs directly (though we are working on this). If you have an APK that you would like to pre-process using Droidel before performing static analysis, we recommend the following steps:
-
-(1) The APK format packages code using Dex bytecodes. Droidel needs these Dex bytecodes to be decompiled to Java bytecodes. We suggest using [Dare](http://siis.cse.psu.edu/dare/) or [dex2jar](https://code.google.com/p/dex2jar/) for decompilation.
-
-(2) Decode the application manifest and resources of the APK using [apktool](https://code.google.com/p/android-apktool/). This makes the manifest and layout both human- and Droidel-readable.
-
-(3) Set up these artifacts in the directory structure described above and run Droidel on the resulting directory.
-
 Troubleshooting
 ---------------
-Problem: Droidel fails while running JPhantom.    
-Solution: JPhantom works for us on Linux and Mac, but sometimes does not work on Windows. Although we do not recommend doing this due to the many benefits of using JPhantom, you can turn off Droidel's use of JPhantom by using the -no-jphantom flag.
-
 Problem: Droidel fails with "Couldn't compile stub file" or "Couldn't compile harness" message.  
-Solution: Make sure that you are using the appropriate version of the Android JAR for your target application. Check the android:minSdkVersion and/or android:targetSdkVersion in AndroidManifest.xml to see what version of the framework is expected.
+Solution: Make sure that you are using the appropriate version of the Android JAR for your target application. Check the android:minSdkVersion and/or android:targetSdkVersion in AndroidManifest.xml to see what version of the framework is expected. If all else fails, try manually fixing the compiler errors and re-compiling the stubs and/or harness.
 
 Problem: Droidel fails with "com.ibm.wala.shrikeCT.InvalidClassFileException" error message.  
 Solution: Droidel uses WALA and Shrike, which cannot currently parse bytecodes produced by the Java 8 compiler. Try switching your default Java version to Java 7 or earlier.
@@ -131,7 +116,7 @@ Creating a reasonable framework model for Android is tedious and difficult, and 
 
 (4) There are many other Android framework methods that use reflection under the hood that we also do not (yet) handle.
 
-Acknowledgements
+Acknowledgments
 ----------------
 We are indebted to the creators of [FlowDroid](http://sseblog.ec-spride.de/tools/flowdroid/) for both their list of callback classes in the Android framework and their list of lifecycle methods for the core Android lifecycle types (Activity, Service, etc.).
 

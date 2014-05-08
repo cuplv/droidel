@@ -10,13 +10,13 @@ object Main {
     val APP = "-app"
     val ANDROID_JAR = "-android_jar"
     val NO_JPHANTOM = "-no-jphantom"
-    val opts = Map(s"$APP" -> "Path to top-level directory of Android application",	
+    val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
     	           s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis")
 		  
     val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom", false))
     
     def printUsage() : Unit = {
-      println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
+      println(s"Usage: ./droidel.sh -$APP <path_to_app_or_apk> -$ANDROID_JAR <path_to_jar> [flags]")
       println("Options:")
       opts.foreach(entry => println(s"${entry._1}\t${entry._2}"))
       flags.foreach(entry => println(s"${entry._1}\t${entry._1}  default: ${entry._2}"))
