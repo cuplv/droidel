@@ -65,8 +65,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     }) else List.empty[File]
   }
   
+  val unprocessedBinPath = s"${appPath}${DroidelConstants.BIN_SUFFIX}"
   private val appBinPath = { // path to the bytecodes for the app
-    val unprocessedBinPath = s"${appPath}${DroidelConstants.BIN_SUFFIX}"
     if (useJPhantom) {
       // check for bytecodes that have been processed with JPhantom and use them
       // if they exist. otherwise, created them
@@ -83,11 +83,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
         val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true)                
         val jPhantomTimer = new Timer
         jPhantomTimer.start
-        new CHAComplementer(originalJar, androidJar :: libJars, jPhantomizedBinDir).complement
+        val success = new CHAComplementer(originalJar, androidJar :: libJars, jPhantomizedBinDir).complement
         jPhantomTimer.printTimeTaken("Running JPhantom")
         // remove the JAR we made
         originalJar.delete()
-        jPhantomizedBinPath
+        if (success) jPhantomizedBinPath else unprocessedBinPath
       }
     } else unprocessedBinPath
   }
@@ -150,7 +150,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
         
     // if we're using JPhantom, all of the application code and all non-core Java library code (including the Android library)
     // has been deposited into the app bin directory, which has already been loaded. otherwise, we need to load library code
-    if (!useJPhantom) {
+    if (!useJPhantom || binPath == unprocessedBinPath) {
       // load JAR libraries in libs directory as library code
       libJars.foreach(f => analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(f)))
       // load Android JAR file as library code
