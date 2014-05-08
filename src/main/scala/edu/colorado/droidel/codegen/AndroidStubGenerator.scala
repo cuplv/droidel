@@ -50,14 +50,14 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
             if (oldList.exists(v => v.id == e.id)) (pair._1, oldList) else (pair._1, e :: oldList)
         })
       })
-      assert(!resourceMap.isEmpty, "Resource map empty: possible, but not expected")
-      generateWalaStubs(allViews, allFragments, Nil, Map.empty[Int,MethodReference], resourceMap.head._1, appBinPath)
+      
+      generateWalaStubs(allViews, allFragments, Nil, Map.empty[Int,MethodReference], STUB_CLASS, appBinPath)
     } else resourceMap.foldLeft (List.empty[String], Map.empty[Int,MethodReference]) ((m, entry) => {
       val (views, fragments) = entry._2.foldLeft (List.empty[LayoutView], List.empty[LayoutFragment]) ((pair, e) => e match {
         case e : LayoutView => (e :: pair._1, pair._2)
         case e : LayoutFragment => (pair._1, e :: pair._2)
       })
-      generateWalaStubs(views, fragments, m._1, m._2, entry._1, appBinPath)
+      generateWalaStubs(views, fragments, m._1, m._2, s"${ClassUtil.deWalaifyClassName(entry._1)}_generatedStubs", appBinPath)
     }) 
   
   val VIEW_PREFIX = "android.view"
@@ -97,7 +97,8 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
   
   // generate a Java class with stubs for UI element lookups such as findViewById and findFragmentById
   private def generateWalaStubs(views : Iterable[LayoutView], fragments : Iterable[LayoutFragment], generatedStubPaths : List[String],
-                           specializedGetterMap : Map[Int,MethodReference], clazz : IClass, appBinPath : String) : (List[String], Map[Int,MethodReference]) = {
+                           specializedGetterMap : Map[Int,MethodReference], 
+                           stubClassName : String, appBinPath : String) : (List[String], Map[Int,MethodReference]) = {
     val inhabitor = new TypeInhabitor    
   
     def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
@@ -123,7 +124,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
         
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
-    val stubClassName = s"${ClassUtil.deWalaifyClassName(clazz.getName()).replace('.', '_')}_layoutStubs"
+    //val stubClassName = s"${ClassUtil.deWalaifyClassName(clazz.getName()).replace('.', '_')}_layoutStubs"
     
     val strWriter = new StringWriter
     val writer = new JavaWriter(strWriter)        

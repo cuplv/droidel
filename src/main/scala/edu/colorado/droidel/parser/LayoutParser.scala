@@ -131,7 +131,10 @@ class LayoutParser extends AndroidParser {
     
     // TODO: parse XML other than res/layout?
     val layoutDir = new File(s"${appDir}/res/layout")
-    assert(layoutDir.exists(), s"Couldn't find res directory ${layoutDir.getAbsolutePath}")
+    if (!layoutDir.exists()) {
+      println(s"Warning: Couldn't find layout directory ${layoutDir.getAbsolutePath}. This is possible, but not expected")
+      return Map.empty[IClass,Set[LayoutElement]]
+    }
         
     def stripIdPrefix(str : String) : String = str.replace("@+id/", "").replace("@id/", "")
     def getString(str : String, strMap : Map[String,String]) : String = {      

@@ -6,7 +6,7 @@ import scala.xml.XML
 import ManifestParser._
 
 object ManifestParser {
-  private val DEBUG = true
+  private val DEBUG = false
 }
 
 class ManifestParser extends AndroidParser {

@@ -1,6 +1,7 @@
 package edu.colorado.droidel.driver
 
 import java.io.File
+import edu.colorado.droidel.preprocessor.ApkDecoder
 
 object Main {
 
@@ -30,8 +31,8 @@ object Main {
         args + (opt -> arg)
       }
       def parseFlag(flag : String, flags : Map[String,Boolean]) : Map[String,Boolean] = {
-	require(flag.startsWith(DASH))
-	flags + (flag -> true)
+        require(flag.startsWith(DASH))
+        flags + (flag -> true)
       }
 
       @annotation.tailrec
@@ -41,21 +42,29 @@ object Main {
         case flag :: args if flags.contains(flag) => parseOpts(args, parsedArgs, parseFlag(flag, parsedFlags))
         case opt :: _ => 
           println(s"Unrecognized option $opt")
-	  printUsage
-	  sys.exit
+          printUsage
+          sys.exit
       }
 
       def missingArgError(arg : String) = {
-	printUsage
-	sys.error(s"Couldn't find required arg $arg")
+        printUsage
+        sys.error(s"Couldn't find required arg $arg")
       }
       
       val (parsedArgs, parsedFlags) = parseOpts(args.toList, Map.empty[String,String], Map.empty[String,Boolean])
       val app = parsedArgs.getOrElse(APP, missingArgError(APP))
       val androidJar = parsedArgs.getOrElse(ANDROID_JAR, missingArgError(ANDROID_JAR))
       val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
+      
+      val appFile = new File(app) 
+      assert(appFile.exists(), s"Couldn't find input application $app")
+      // convert the input from an apk into our desired format if necessary
+      val droidelInput = if (appFile.isFile())            
+        // decode the app resources and decompile the dex bytecodes to Java bytecodes
+        new ApkDecoder(app).decodeApp.getAbsolutePath()
+      else app   
 
-      val transformer = new AndroidAppTransformer(app, new File(androidJar), useJPhantom = !noJphantom)
+      val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), useJPhantom = !noJphantom)
       transformer.transformApp()
     }
   }

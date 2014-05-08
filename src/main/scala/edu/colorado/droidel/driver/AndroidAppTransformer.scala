@@ -41,6 +41,7 @@ import edu.colorado.droidel.util.Util
 import com.ibm.wala.types.FieldReference
 import com.ibm.wala.ssa.SSANewInstruction
 import com.ibm.wala.ssa.SymbolTable
+import edu.colorado.droidel.preprocessor.ApkDecoder
 
 object AndroidAppTransformer {
   private val DEBUG = false
@@ -50,7 +51,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
-  val harnessMethodName = DroidelConstants.HARNESS_MAIN
+  val harnessMethodName = DroidelConstants.HARNESS_MAIN  
+  
   private val appPath = if (_appPath.endsWith(File.separator)) _appPath else s"${_appPath}${File.separator}" 
 
   private val libJars = {     
