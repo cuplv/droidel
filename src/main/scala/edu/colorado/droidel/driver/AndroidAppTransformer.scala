@@ -113,10 +113,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
 
   val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))  
   
-  // load Android libraries/our stubs addition to the normal analysis scope loading 
+  // load Android libraries/our stubs in addition to the normal analysis scope loading 
   def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
-    val binPath = if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
+    val binPath = 
+      if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
     val applicationCodeDir = new File(applicationCodePath)
@@ -262,13 +263,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
             
     val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
     
-    val specializedMethodNames = Set( AndroidConstants.FIND_VIEW_BY_ID,  AndroidConstants.FIND_FRAGMENT_BY_ID)
+    val specializedMethodNames = Set(AndroidConstants.FIND_VIEW_BY_ID,  AndroidConstants.FIND_FRAGMENT_BY_ID)
     def isSpecializedMethod(m : MethodReference) : Boolean = specializedMethodNames.contains(m.getName().toString())
     def isSpecializedId(id : LayoutId) : Boolean = specializedLayoutGettersMap.contains(id)
     def isFirstParamSpecializedId(i : SSAInvokeInstruction, tbl : SymbolTable) : Boolean =
-      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))
-
-    
+      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))   
     
     def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
     // look for application-created callback types by iterating through the class hierarchy instead of the methods in the callgraph.
@@ -305,7 +304,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                   }                
                 case i : SSAInvokeInstruction if isSpecializedMethod(i.getDeclaredTarget()) && isFirstParamSpecializedId(i, tbl) =>
                   if (DEBUG) 
-		    println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method ${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
+                    println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method ${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
                   (l._1, (pair._2, specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))) :: l._2)      
                 case _ => l
               }
@@ -473,17 +472,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
 
     // TODO: just compile them in the right place instead of moving?
     // move stubs in with the apps
-    val stubDir = new File(s"$instrumentedBinDir${File.separator}${DroidelConstants.STUB_DIR}")
-    if (!stubDir.exists()) stubDir.mkdir()
-    stubPaths.foreach(stubPath => {
-      val stubFileName = s"$stubPath.class"
-      val stubFile = new File(stubFileName)
-      assert(stubFile.exists(), s"Can't find stub $stubPath")      
-      //Files.move(stubFile.toPath(), new File(s"$instrumentedBinDir${File.separator}$stubFileName").toPath(), StandardCopyOption.REPLACE_EXISTING)     
-      val newStubFile = new File(s"$instrumentedBinDir${File.separator}$stubFileName")
-      if (newStubFile.exists()) newStubFile.delete()
-      stubFile.renameTo(newStubFile)
-    })
+    val newStubDir = new File(s"$instrumentedBinDir${File.separator}${DroidelConstants.STUB_DIR}")
+    if (newStubDir.exists()) newStubDir.delete()    
+    val oldStubDir = new File(DroidelConstants.STUB_DIR)
+    if (oldStubDir.exists()) oldStubDir.renameTo(newStubDir)
+
     instrumentedBinDir
   }
 
