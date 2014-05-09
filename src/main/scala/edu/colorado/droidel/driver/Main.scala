@@ -16,7 +16,7 @@ object Main {
     val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom", false))
     
     def printUsage() : Unit = {
-      println(s"Usage: ./droidel.sh -$APP <path_to_app_or_apk> -$ANDROID_JAR <path_to_jar> [flags]")
+      println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
       println("Options:")
       opts.foreach(entry => println(s"${entry._1}\t${entry._2}"))
       flags.foreach(entry => println(s"${entry._1}\t${entry._1}  default: ${entry._2}"))

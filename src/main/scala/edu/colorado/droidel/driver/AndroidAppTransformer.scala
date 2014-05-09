@@ -106,7 +106,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses = {
-    Source.fromURL(getClass.getResource(s"${File.separator}${DroidelConstants.CALLBACK_LIST}"))
+    Source.fromURL(getClass.getResource(s"/{DroidelConstants.CALLBACK_LIST}"))
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))   
   }  
@@ -525,7 +525,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       if (stubDir.exists()) Util.deleteAllFiles(stubDir) 
       val harnessDir = new File(DroidelConstants.HARNESS_DIR)
       if (harnessDir.exists()) Util.deleteAllFiles(harnessDir)         
-    }    
+    }       
   }
   
   private def getJVMLibFile : Option[File] = {    

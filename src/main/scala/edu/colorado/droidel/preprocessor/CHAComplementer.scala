@@ -51,6 +51,7 @@ class CHAComplementer(appJar : File, libJars : List[File], jPhantomOutDir : File
     } catch {
       case e : Throwable => 
         println(s"JPhantom failed: $e. Continuing.")
+        sys.exit(1)
         false
     }    
    
