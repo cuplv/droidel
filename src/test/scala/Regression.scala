@@ -15,7 +15,8 @@ object Regression {
       assert(androidJar.exists(), s"Couldn't find Android JAR ${androidJar.getAbsolutePath()}")
       val testPrefix = s"src${File.separator}test${File.separator}resources${File.separator}regression${File.separator}"
       
-      val tests = List("HoistTest1", "HoistTest2", "ProtectedCallback", "ViewLookup", "LifecycleAndInterfaceCallback")
+      val tests = List("HoistTest1", "HoistTest2", "ProtectedCallback", "ViewLookup", "LifecycleAndInterfaceCallback",
+                         "SupportFragment")
 
       tests.foreach(test => {
       	val testPath = s"$testPrefix$test"
@@ -50,7 +51,7 @@ object Regression {
       	assert(absurdities.isEmpty, s"After harness generation, expected no absurdities for test $test")
       
       	// clean up after ourselves
-      	Util.deleteAllFiles(droidelOutBinDir)
+      	//Util.deleteAllFiles(droidelOutBinDir)
       })
     }
   }

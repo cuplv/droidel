@@ -63,6 +63,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     inhabitantCache.put(viewClass, freshVar)
   }
   
+  
   // take framework-allocated types and FieldReference's corresponding to instrumentation variables as input 
   def generateHarness(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
                       manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],                         
@@ -71,6 +72,8 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
 
     val harnessDir = new File(s"${instrumentedBinDir}/${DroidelConstants.HARNESS_DIR}")
     if (!harnessDir.exists()) harnessDir.mkdir()        
+    
+    // TODO: don't allocate new Fragment instances here -- get them by calling the layout stubs findFragmentById or specialized getters
     
     // create an instance of each framework-allocated type. return a list of allocations to emit 
     val allocStatements = frameworkCreatedTypesCallbackMap.keys.foldLeft (initAllocs) ((allocs, appType) => {
@@ -115,7 +118,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
           interfaceType.getDeclaredMethods().filter(m => m.isPublic() && !m.isStatic && CHAUtil.mayOverride(m, frameworkCreatedClass, cha)).foldLeft (l) ((l, m) => {
             val possibleOverrides = frameworkMethodsByName(m.getName())
                                     .filter(possibleOverride => !possibleOverride.isStatic() &&
-                                              possibleOverride.getNumberOfParameters() == m.getNumberOfParameters())
+                                            possibleOverride.getNumberOfParameters() == m.getNumberOfParameters())
             val toInhabit = if (possibleOverrides.size > 1) {
               // special case to handle generic methods, when we'll have one method with a parameter that is Object and one with a more specific type
               // TODO: this is a big hack. do better

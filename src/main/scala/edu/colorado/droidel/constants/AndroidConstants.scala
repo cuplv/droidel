@@ -7,10 +7,10 @@ object AndroidConstants {
   val BROADCAST_RECEIVER_TYPE = "android.content.BroadcastReceiver"
   val CONTENT_PROVIDER_TYPE = "android.content.ContentProvider";
   val APPLICATION_TYPE = "android.app.Application";        
-  val VIEW_TYPE = "android.view.View"
+  val VIEW_TYPE = "android.view.View"    
     
-  //val FRAGMENT_TYPE = "android.app.Fragment"
-  // apparently much more commonly used because it has better backward compatibility. TODO: need better way to distinguish between the two
+  val APP_FRAGMENT_TYPE = "android.app.Fragment"
+  // apparently much more commonly used because it has better backward compatibility
   val FRAGMENT_TYPE = "android.support.v4.app.Fragment"           
 
   // interesting methods

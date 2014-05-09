@@ -48,6 +48,8 @@ class BytecodeInstrumenter {
     
     if (DEBUG) println(s"Instrumentation map is $instrumentationMap")
     
+    println("stubMap is " + stubMap)
+    
     @annotation.tailrec
     def instrumentRec() : Unit = instrumenter.nextClass() match {
       case null => ()
@@ -125,6 +127,7 @@ class BytecodeInstrumenter {
   def doInstrumentation(ci : ClassInstrumenter, toInstrument : Map[IMethod,Iterable[(Int, Iterable[FieldReference])]], 
                           toStub : Map[IMethod,Iterable[(Int, MethodReference)]],
                           toMakePublic : Set[IMethod]) : Unit = {
+    if (DEBUG) println(s"Instrumenting class ${ci.getReader().getName()}")
     def getMethod(methodData : MethodData, methods : Iterable[IMethod]) : Option[IMethod] = methods.find(m =>       
       methodData.getName() == m.getName().toString() && 
       methodData.getSignature() == m.getDescriptor().toString())
@@ -152,7 +155,7 @@ class BytecodeInstrumenter {
           val stubsTodo = getInstrumentationFromMap(methodData, toStub)
           val methodName = methodData.getName()
           if (!allocsTodo.isEmpty || !stubsTodo.isEmpty) {
-            if (DEBUG) println(s"Instrumenting $methodName")
+            if (DEBUG) println(s"Instrumenting method $methodName")
             new Verifier(methodData).verify() // sanity check: verify the input bytecode          
               
             if (DEBUG) {

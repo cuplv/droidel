@@ -43,6 +43,10 @@ object AndroidLifecycle {
        
   val APPLICATION_ONCREATE = "onCreate()V"
   val APPLICATION_ONTERMINATE = "onTerminate()V"
+    
+  // TODO: this is not complete
+  val FRAGMENT_ONCREATE = "onCreate(Landroid/os/Bundle;)V"
+  val FRAGMENT_ONSTART = "onStart()V"
 
   // TODO: what are these?
   val APPLIFECYCLECALLBACK_ONACTIVITYSTARTED = "void onActivityStarted(android.app.Activity)";
@@ -51,10 +55,7 @@ object AndroidLifecycle {
   val APPLIFECYCLECALLBACK_ONACTIVITYRESUMED = "void onActivityResumed(android.app.Activity)";
   val APPLIFECYCLECALLBACK_ONACTIVITYPAUSED = "void onActivityPaused(android.app.Activity)";
   val APPLIFECYCLECALLBACK_ONACTIVITYDESTROYED = "void onActivityDestroyed(android.app.Activity)";
-  val APPLIFECYCLECALLBACK_ONACTIVITYCREATED = "void onActivityCreated(android.app.Activity,android.os.Bundle)";    
-          
-  val frameworkCreatedClassNames = List(ACTIVITY_TYPE, SERVICE_TYPE, BROADCAST_RECEIVER_TYPE, CONTENT_PROVIDER_TYPE, APPLICATION_TYPE)
-  val frameworkCreatedTypeRefs = frameworkCreatedClassNames.map(c => TypeReference.findOrCreate(ClassLoaderReference.Primordial, c))
+  val APPLIFECYCLECALLBACK_ONACTIVITYCREATED = "void onActivityCreated(android.app.Activity,android.os.Bundle)";             
   
   // mapping of framework-created lifecycle types to callbacks defined on those types
   val frameworkCbMap = Map(
@@ -82,21 +83,20 @@ object AndroidLifecycle {
     BROADCAST_RECEIVER_TYPE -> List(BROADCAST_ONRECEIVE),
     CONTENT_PROVIDER_TYPE -> List(CONTENTPROVIDER_ONCREATE),
     APPLICATION_TYPE -> List(APPLICATION_ONCREATE,
-                             APPLICATION_ONTERMINATE) 
+                             APPLICATION_ONTERMINATE
+                        ),
+    FRAGMENT_TYPE -> List(FRAGMENT_ONCREATE, 
+                          FRAGMENT_ONSTART
+                     ),
+    APP_FRAGMENT_TYPE -> List(FRAGMENT_ONCREATE, 
+                              FRAGMENT_ONSTART)
   )
     
-  private var frameworkCreatedClasses : Iterable[IClass] = null
-  
-  def getFrameworkCreatedClasses(cha : IClassHierarchy) : Iterable[IClass] = {
-    if (frameworkCreatedClasses == null) 
-      frameworkCreatedClasses = frameworkCreatedClassNames.map(c => {
-        val clazz = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, 
-                                ClassUtil.walaifyClassName(c)))
-        assert(clazz != null, s"Couldn't find $c in class hierarchy")
-        clazz
-      })
-    frameworkCreatedClasses
-  }
+  def getFrameworkCreatedClasses(cha : IClassHierarchy) : Iterable[IClass] = frameworkCbMap.keys.map(c => {
+    val clazz = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(c)))
+    assert(clazz != null, s"Couldn't find $c in class hierarchy")
+    clazz
+  })
   
   def isFrameworkCreatedType(c : IClass, cha : IClassHierarchy) : Boolean = getFrameworkCreatedClasses(cha).contains(c)
   

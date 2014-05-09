@@ -1,0 +1,6 @@
+# view AndroidManifest.xml #generated:15
+-keep class com.test.supportfragment.MainActivity { <init>(...); }
+
+# view res/layout/main.xml #generated:8
+-keep class com.test.supportfragment.MainFragment { <init>(...); }
+
