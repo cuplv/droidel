@@ -237,7 +237,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       case v : LayoutFragment =>
         // fragments are odd in that (like View components) they can be created by the frameowrk or the application,
         // but (unlike View components, but like Activity's) they have lifecycle methods
-        println(s"Warning: Fragment ${v.typ} detected. We do not currently support the Fragment lifecycle")
+        //println(s"Warning: Fragment ${v.typ} detected. We do not currently support the Fragment lifecycle")
         // TODO: add Fragment lifecycle methods here? or support Fragment as a top-level lifecycle type like Activity's?
         //sys.error("unsupported: fragments")
         m
