@@ -127,10 +127,14 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     val analysisScope = AnalysisScope.createJavaAnalysisScope()
 
     val harnessFile = if (useHarness) {
-      val f = new File(s"${binPath}/${ClassUtil.stripWalaLeadingL(harnessClassName)}.class")
+      val f = new File(s"${binPath}${File.separator}${ClassUtil.stripWalaLeadingL(harnessClassName)}.class")
       analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       Some(f)
     } else None
+    
+    // TODO: this will need to change if we start generating more than one stub class
+    //val stubFilePath = s"${binPath}${File.separator}${DroidelConstants.STUB_DIR}${DroidelConstants.STUB_CLASS}.class"
+    val stubFilePath = List(binPath, DroidelConstants.STUB_DIR, s"${DroidelConstants.STUB_CLASS}.class").mkString(File.separator)
    
     val manifestUsedActivities = manifest.activities.foldLeft (Set.empty[String]) ((s, a) => 
       s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
@@ -144,7 +148,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       // make sure code in the manifest-declared app package is loaded as application
       if (f.getAbsolutePath().contains(applicationCodePath) ||
           // if we have library code that is declared as an application Activity in the manifest, load in in the Application scope
-          manifestUsedActivities.contains(f.getAbsolutePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
+          manifestUsedActivities.contains(f.getAbsolutePath) ||
+          // make sure the stubs are loaded as application
+          f.getAbsolutePath().contains(stubFilePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       // ensure the harness class (if any) is only loaded as application; we don't want to reload it as primordial
       else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath()) analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
     })

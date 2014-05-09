@@ -99,8 +99,8 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
   private def generateWalaStubs(views : Iterable[LayoutView], fragments : Iterable[LayoutFragment], generatedStubPaths : List[String],
                            specializedGetterMap : Map[Int,MethodReference], 
                            stubClassName : String, appBinPath : String) : (List[String], Map[Int,MethodReference]) = {
-    val inhabitor = new TypeInhabitor    
-  
+    val inhabitor = new TypeInhabitor  
+      
     def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
       elems.foldLeft (List.empty[InhabitedLayoutElement], allocs) ((pair, v) => {       
         val elemType = getTypeForAndroidClassName(v.typ)
@@ -109,18 +109,17 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
           case clazz if ClassUtil.isInnerOrEnum(clazz) => pair
           case _ => 
             val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
-            val id = v match {
+            /*val id = v match {
               case v : LayoutView => v.id 
               case _ => None
-            }
-            (new InhabitedLayoutElement(v.name, id, inhabitant, elemType) :: pair._1, allocs)
+            }*/
+            (new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType) :: pair._1, allocs)
         }        
       })
       
     val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
-    val finalAllocs = allocs1
     // not dealing with fragments for now
-    //val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
+    val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
         
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
@@ -141,7 +140,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
 
     // emit a field for each statically declared View and Fragment
     viewFields.foreach(v => writer.emitField(ClassUtil.deWalaifyClassName(v.typ), v.name, EnumSet.of(PRIVATE, STATIC)))
-    //fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PRIVATE, STATIC)))
+    fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PRIVATE, STATIC)))
     writer.emitEmptyLine()
     
     writer.beginInitializer(true) // begin static
@@ -150,7 +149,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     finalAllocs.reverse.foreach(a => writer.emitStatement(a))
     // emit initialization of View and Fragment fields
     viewFields.foreach(v => writer.emitStatement(s"${v.name} = ${v.inhabitant}"))
-    //fragmentFields.foreach(f => writer.emitStatement(s"${f.name} = ${f.inhabitant}"))
+    fragmentFields.foreach(f => writer.emitStatement(s"${f.name} = ${f.inhabitant}"))
     
     // TODO: disabling for now, causing too many problems. in the future, look up the type and see if it has the setId/setText method
     // TODO: do this for Fragments too
@@ -189,17 +188,19 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
       writer.endControlFlow() // end switch    
     }
     
-    // emit findViewById method() that can return any of the child View's
-    writer.beginMethod(VIEW_TYPE, FIND_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findViewById
-    makeIdSwitchForLayoutElements(viewFields)
-    writer.endMethod() // end findViewById
+    // emit findViewById method that can return any of the child View's
+    if (viewFields.size != 0) {
+      writer.beginMethod(VIEW_TYPE, FIND_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findViewById
+      makeIdSwitchForLayoutElements(viewFields)
+      writer.endMethod() // end findViewById
+    }
     
-    // no fragments for now
-    /*if (!fragments.isEmpty()) {
+    // emit findFragmentById() method than can return child Fragments
+    if (fragmentFields.size != 0) {
       writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
-      makeIdSwitchForLayoutElements(fragments)
+      makeIdSwitchForLayoutElements(fragmentFields)
       writer.endMethod() // end findFragmentById
-    }*/
+    }
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
@@ -220,8 +221,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     // emit specialized getters for each View and Fragment with a statically known id
     val specializedGetters = {
       val viewMap = emitSpecializedGettersForLayoutElems(viewFields, "getView", specializedGetterMap)
-      viewMap
-      //emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
+      emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
     }
         
     writer.endType() // end class            
@@ -240,7 +240,7 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
     val compilerOptions = List("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath")
     if (DEBUG) println(s"Running javac ${compilerOptions(0)} ${compilerOptions(1)}")
     val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
-    assert(compiled, s"Couldn't compile stub file $stubPath")
+    assert(compiled, s"Couldn't compile stub file $stubPath")    
     // TODO: pass path of generated stubs out for easier cleanup later
     (stubPath :: generatedStubPaths, specializedGetters)
   }

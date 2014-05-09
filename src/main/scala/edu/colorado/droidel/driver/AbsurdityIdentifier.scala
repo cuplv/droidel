@@ -47,6 +47,9 @@ class AbsurdityIdentifier(harnessClassName : String) {
   def getAbsurdities(walaRes : WalaAnalysisResults, doXmlOutput : Boolean = false) : Iterable[Absurdity] = {
     import walaRes._
   
+    //cha.foreach(c => println(c))    
+    //cg.foreach(n => if (!ClassUtil.isLibrary(n) || isGeneratedMethod(n.getMethod())) println(n.getIR()))
+    
     val methodNodeMap = cg.filter(n => !ClassUtil.isLibrary(n) && !isGeneratedMethod(n.getMethod())).groupBy(n => n.getMethod().getReference())           
         
     def getAbsurditiesInternal[T](absurdityName : String, 

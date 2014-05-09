@@ -192,7 +192,7 @@ class LayoutParser extends AndroidParser {
                   assert(!name.contains(':'), s"$name in $declFile does not look like a Fragment type")
                   name
               }
-              new LayoutFragment(typ, declFile, mkFakeName, id)            
+              new LayoutFragment(typ, declFile, idStr, id)            
             } else {
               val text = getAndroidPrefixedAttrOption(node, "text") match {
                 case Some(text) => Some(getString(text, strMap))
