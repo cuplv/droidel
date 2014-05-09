@@ -276,6 +276,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))   
     
     def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
+         
     // look for application-created callback types by iterating through the class hierarchy instead of the methods in the callgraph.
     // this has pros and cons:
     // pro: iterating over the class hierarchy in a single pass is sound, whereas if we were iterating over the callgraph we would
@@ -309,7 +310,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                       }
                   }                
                 case i : SSAInvokeInstruction if isSpecializedMethod(i.getDeclaredTarget()) && isFirstParamSpecializedId(i, tbl) =>
-                  if (DEBUG) 
+                  //if (DEBUG) 
                     println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method ${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
                   (l._1, (pair._2, specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))) :: l._2)      
                 case _ => l
@@ -325,7 +326,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                                                                                             harnessClassName.toString(),
                                                                                             getFreshDummyFieldName,
                                                                                             c.getName().toString())))
-                )
+                  )
                 // update list of instrFields                                                                                                
                 val instrFields = instrumentation.foldLeft (trio._1) ((l, pair) => pair._2.foldLeft (l) ((l, f) => f :: l))                                                                                               
                 (instrFields, trio._2 + (m -> instrumentation))
@@ -356,7 +357,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       val instrumentedJarOutputName = "instrumented.jar"
       // create JAR containing classes to instrument only
       val toInstrument = JavaUtil.createJar(appBinFile, toInstrumentJarName, "", startInsideDir = true, j => j.isDirectory() || 
-        allocMap.contains(j.getName()) || cbsToMakePublic.contains(j.getName()))
+        cbsToMakePublic.contains(j.getName()) || allocMap.contains(j.getName()) || stubMap.contains(j.getName()))
       // perform instrumentation
       val instrumentedJar = new BytecodeInstrumenter().doIt(toInstrument, allocMap, stubMap, cbsToMakePublic, instrumentedJarOutputName)    
       assert(instrumentedJar.exists(), s"Instrumentation did not create JAR file $instrumentedJar")
@@ -512,7 +513,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     val cha = ClassHierarchy.make(analysisScope)
     // parse app layout
     val (layoutMap, manifestDeclaredCallbackMap) = parseLayout(cha)
-    // generate app-sepcialized stubs
+    // generate app-specialized stubs
     val (stubPaths, specializedLayoutGettersMap) = generateStubs(layoutMap, cha)
     val specializedLayoutTypeCreationMap = makeSpecializedLayoutTypeCreationMap(stubPaths)
     // inject the stubs via bytecode instrumentation and generate app-specialized harness
