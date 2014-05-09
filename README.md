@@ -112,11 +112,9 @@ Creating a reasonable framework model for Android is tedious and difficult, and 
 
 (1) Currently, Droidel's harness is designed for flow-insensitive analysis. It does not faithfully model the invocation order of callbacks in the Android framework, and thus would not be suitable for direct use by a flow-sensitive analysis. We hope to add support for flow-sensitive harness generation in the future.
 
-(2) Droidel does not model the invocation of lifecycle methods of the Fragment type, which is heavily used by many Android apps. We are working on adding support for Fragments.
+(2) Droidel does not generate stubs for lookup of preferences parsed from XML via the Activity.getPreferences() method (and similar). This is also high on our priority list.
 
-(3) Droidel does not generate stubs for lookup of preferences parsed from XML via the Activity.getPreferences() method (and similar). This is also high on our priority list.
-
-(4) There are many other Android framework methods that use reflection under the hood that we also do not (yet) handle.
+(3) There are many other Android framework methods that use reflection under the hood that we also do not (yet) handle.
 
 Acknowledgments
 ----------------
