@@ -18,7 +18,6 @@ object DroidelConstants {
   
   // default locations for generated stubs and harnesses
   val STUB_DIR = "generatedstubs"
-  //val STUB_DIR = "stubs"
   val STUB_CLASS = "GeneratedAndroidStubs"
   val HARNESS_DIR = "generatedharness"
   val HARNESS_CLASS = "GeneratedAndroidHarness" 

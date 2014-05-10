@@ -82,14 +82,14 @@ or
 
 Droidel will generate a harness and stubs and produce instrumented copies of the app's bytecodes. The original bytecodes of the app will remain unchanged; Droidel's output is placed in APP/bin/droidel_classes. This directory will also contain the bytecodes for the Android JAR specified on the command line and the bytecodes of any libraries in the APP/libs directory.
 
-The most important output is Droidel's harness class; this is placed in APP/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.class. To use Droidel in a static analysis framework such as WALA or Soot, simply load all of the code in APP/bin/droidel_classes into the analyzer and use `GeneratedAndroidHarness.main()` as the entrypoint for analysis. Because droidel_classes contains all of the Android library bytecodes and bytecodes of all other libraries the app depends on, there should be no need to load any additional code other than the core Java libraries. For an example of how to build a call graph using Droidel's output in WALA, see how [`AndroidCGBuilder`](https://github.com/cuplv/droidel/blob/master/src/main/scala/edu/colorado/droidel/driver/AndroidCGBuilder.scala) is used in the regression [tests](https://github.com/cuplv/droidel/blob/master/src/test/scala/Regression.scala).
+The most important output is Droidel's harness class; this is placed in APP/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.class. To use Droidel in a static analysis framework such as WALA or Soot, simply load all of the code in APP/bin/droidel_classes into the analyzer and use `GeneratedAndroidHarness.androidMain()` as the entrypoint for analysis. Because droidel_classes contains all of the Android library bytecodes and bytecodes of all other libraries the app depends on, there should be no need to load any additional code other than the core Java libraries. For an example of how to build a call graph using Droidel's output in WALA, see how [`AndroidCGBuilder`](https://github.com/cuplv/droidel/blob/master/src/main/scala/edu/colorado/droidel/driver/AndroidCGBuilder.scala) is used in the regression [tests](https://github.com/cuplv/droidel/blob/master/src/test/scala/Regression.scala).
 
 Droidel generates its harness and stubs at the Java source level and then compiles them against the application, its libraries, and the Android framework. For convenience, it preserves these artifacts so that they be be manually inspected and modified/recompiled if necessary. The harness source code is located in APP/bin/droidel_classes/generatedharness/GeneratedAndroidHarness.java, and the stub source code is located in APP/bin/droidel_classes/generatedstubs/GeneratedAndroidStubs.java.
 
 
 Known limitations
 -----------------
-Creating a reasonable framework model for Android is tedious and difficult, and Droidel is not perfect. A few known limitations of Droidel are:
+Creating a reasonable framework model for Android is difficult, and Droidel is not perfect. A few known limitations of Droidel are:
 
 (1) Currently, Droidel's harness is designed for flow-insensitive analysis. It does not faithfully model the invocation order of callbacks in the Android framework, and thus would not be suitable for direct use by a flow-sensitive analysis. We hope to add support for flow-sensitive harness generation in the future.
 
