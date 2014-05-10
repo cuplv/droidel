@@ -23,6 +23,7 @@ import com.ibm.wala.types.TypeReference
 import edu.colorado.droidel.parser.LayoutElement
 import edu.colorado.droidel.parser.LayoutView
 import edu.colorado.droidel.parser.LayoutFragment
+import edu.colorado.droidel.constants.DroidelConstants
 
 object AndroidStubGenerator {
   protected val DEBUG = false
@@ -214,7 +215,8 @@ class AndroidStubGenerator(cha : IClassHierarchy, androidJarPath : String) {
 
           val sig = s"()${v.typ.getName().toString()}"
           specializedGetterMap + 
-            (id -> MethodReference.findOrCreate(ClassLoaderReference.Application, ClassUtil.walaifyClassName(s"stubs.$stubClassName"), generatedName, sig))
+            (id -> MethodReference.findOrCreate(ClassLoaderReference.Application, 
+                                                ClassUtil.walaifyClassName(s"$STUB_DIR.$stubClassName"), generatedName, sig))
         case None => specializedGetterMap
       })   
     

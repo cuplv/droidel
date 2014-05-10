@@ -310,7 +310,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                       }
                   }                
                 case i : SSAInvokeInstruction if isSpecializedMethod(i.getDeclaredTarget()) && isFirstParamSpecializedId(i, tbl) =>
-                  //if (DEBUG) 
+                  if (DEBUG) 
                     println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method ${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
                   (l._1, (pair._2, specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))) :: l._2)      
                 case _ => l

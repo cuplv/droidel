@@ -51,7 +51,7 @@ object Regression {
       	assert(absurdities.isEmpty, s"After harness generation, expected no absurdities for test $test")
       
       	// clean up after ourselves
-      	//Util.deleteAllFiles(droidelOutBinDir)
+      	Util.deleteAllFiles(droidelOutBinDir)
       })
     }
   }

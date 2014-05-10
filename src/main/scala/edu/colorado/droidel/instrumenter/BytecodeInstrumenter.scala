@@ -46,10 +46,8 @@ class BytecodeInstrumenter {
     instrumenter.setOutputJar(outJar)
     instrumenter.beginTraversal()
     
-    if (DEBUG) println(s"Instrumentation map is $instrumentationMap")
-    
-    println("stubMap is " + stubMap)
-    
+    if (DEBUG) println(s"Instrumentation map is $instrumentationMap")   
+        
     @annotation.tailrec
     def instrumentRec() : Unit = instrumenter.nextClass() match {
       case null => ()
@@ -68,7 +66,7 @@ class BytecodeInstrumenter {
     outJar
   }
   
-  def makeMethodsPublic(methodNums : Set[Int], oldClassWriter : ClassWriter) : ClassWriter = {
+  private def makeMethodsPublic(methodNums : Set[Int], oldClassWriter : ClassWriter) : ClassWriter = {
     val classReader = new ClassReader(oldClassWriter.makeBytes())
     val classWriter = new ClassWriter()
     val iter = new ClassReader.AttrIterator()
@@ -124,9 +122,9 @@ class BytecodeInstrumenter {
     classWriter
   }   
   
-  def doInstrumentation(ci : ClassInstrumenter, toInstrument : Map[IMethod,Iterable[(Int, Iterable[FieldReference])]], 
-                          toStub : Map[IMethod,Iterable[(Int, MethodReference)]],
-                          toMakePublic : Set[IMethod]) : Unit = {
+  private def doInstrumentation(ci : ClassInstrumenter, toInstrument : Map[IMethod,Iterable[(Int, Iterable[FieldReference])]], 
+                                 toStub : Map[IMethod,Iterable[(Int, MethodReference)]],
+                                 toMakePublic : Set[IMethod]) : Unit = {
     if (DEBUG) println(s"Instrumenting class ${ci.getReader().getName()}")
     def getMethod(methodData : MethodData, methods : Iterable[IMethod]) : Option[IMethod] = methods.find(m =>       
       methodData.getName() == m.getName().toString() && 
