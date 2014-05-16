@@ -154,9 +154,9 @@ class AbsurdityIdentifier(harnessClassName : String) {
       }
   }
   
-  def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = {
-    val ir = n.getIR()
-    ir.getInstructions().toIterable.zipWithIndex.collect({
+  def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = n.getIR match {
+    case null => Nil
+    case ir => ir.getInstructions().toIterable.zipWithIndex.collect({
       case (i : SSAConditionalBranchInstruction, index : Int) if i.isObjectComparison() && { 
         val tbl = ir.getSymbolTable()
         val (use0, use1) = (i.getUse(0), i.getUse(1))
@@ -172,10 +172,10 @@ class AbsurdityIdentifier(harnessClassName : String) {
     })
   }
       
-  def getNullDispatchMethods(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = {
-    val ir = n.getIR()
-    // collect all non-static invokes in the IR for n whose receiver has an empty points-to set
-    ir.getInstructions().toIterable.zipWithIndex.collect({ 
+  def getNullDispatchMethods(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
+    case null => Nil
+      // collect all non-static invokes in the IR for n whose receiver has an empty points-to set
+    case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 
       case (i : SSAInvokeInstruction, index : Int) if !i.isStatic() && getPt(makeLPK(i.getReceiver(), n, hm), hg).size == 0 =>
         val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
         val receiverName = getLocalName(index, i.getReceiver(), ir)
@@ -183,10 +183,10 @@ class AbsurdityIdentifier(harnessClassName : String) {
     })
   }
   
-  def getNullReturnValueMethods(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = {
-    val ir = n.getIR()
-    // collect all invokes with non-primitive return values such that the pts-to set of the return value is empty
-    ir.getInstructions().toIterable.zipWithIndex.collect({ 
+  def getNullReturnValueMethods(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
+    case null => Nil
+      // collect all invokes with non-primitive return values such that the pts-to set of the return value is empty
+    case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 
       case (i : SSAInvokeInstruction, index : Int) if i.hasDef() && i.getDeclaredResultType().isReferenceType() && 
         getPt(makeLPK(i.getDef(), n, hm), hg).size == 0 =>
           val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
