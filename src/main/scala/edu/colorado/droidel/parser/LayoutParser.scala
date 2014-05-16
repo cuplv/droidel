@@ -24,6 +24,7 @@ import edu.colorado.droidel.util.ClassUtil
 import edu.colorado.droidel.constants.AndroidConstants._
 import com.ibm.wala.classLoader.IClass
 import LayoutParser._
+import javax.lang.model.SourceVersion
 
 
 object LayoutParser {
@@ -136,7 +137,7 @@ class LayoutParser extends AndroidParser {
       return Map.empty[IClass,Set[LayoutElement]]
     }
         
-    def stripIdPrefix(str : String) : String = str.replace("@+id/", "").replace("@id/", "")
+    def stripIdPrefix(str : String) : String = str.replace("@+id/", "").replace("@id/", "").replace("@*", "")
     def getString(str : String, strMap : Map[String,String]) : String = {      
       val idTag = "@string/"
       def stripStrPrefix(str : String) : String = str.replace(idTag, "")
@@ -183,23 +184,26 @@ class LayoutParser extends AndroidParser {
                 idStr
             }
             
+            // variant of name that is a valid Java identifier
+            val checkedName = if (SourceVersion.isName(idStr)) idStr else mkFakeName
+            
             val newElem = if (node.label == "fragment") {
-              assert(!isFake(name))
+              assert(!isFake(name), s"Expected fragment name, but instead got fake name. Node is $node")
               val typ = node.attribute("class") match {
                 case Some(typ) => typ.head.text
                 case None =>
                   // sanity check--make sure the name looks like it could be a type
                   assert(!name.contains(':'), s"$name in $declFile does not look like a Fragment type")
                   name
-              }
-              new LayoutFragment(typ, declFile, idStr, id)            
+              }              
+              new LayoutFragment(typ, declFile, checkedName, id)            
             } else {
               val text = getAndroidPrefixedAttrOption(node, "text") match {
                 case Some(text) => Some(getString(text, strMap))
                 case None => None
               }
               val onClick = getAndroidPrefixedAttrOption(node, "onClick")
-              new LayoutView(node.label, declFile, name, id, text, onClick)
+              new LayoutView(node.label, declFile, checkedName, id, text, onClick)
             }
             layoutElems + newElem
           }
