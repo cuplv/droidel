@@ -26,6 +26,8 @@ import com.ibm.wala.types.MethodReference
 import com.ibm.wala.shrikeBT.InvokeInstruction
 import com.ibm.wala.shrikeBT.IInvokeInstruction
 import com.ibm.wala.shrikeBT.PopInstruction
+import edu.colorado.droidel.util.Types._
+import edu.colorado.droidel.util.ClassUtil
 
 
 class BytecodeInstrumenter {
@@ -35,8 +37,8 @@ class BytecodeInstrumenter {
   type ClassName = String
   
   def doIt(inJar : File, instrumentationMap : Map[ClassName, Map[IMethod,Iterable[(Int, Iterable[FieldReference])]]],
-           stubMap : Map[ClassName,Map[IMethod,Iterable[(Int, MethodReference)]]],
-           cbsToMakePublic : Map[ClassName,Set[IMethod]], outJarName : String) : File = {
+           stubMap : Map[ClassName,Map[IMethod, Iterable[(Int, Patch)]]],
+           cbsToMakePublic : Map[ClassName, Set[IMethod]], outJarName : String) : File = {
     require(inJar.exists(), s"Can't find inJar $inJar")
     // tell the instrumenter what classes we are going to instrument
     instrumenter.addInputJar(inJar)    
@@ -54,8 +56,8 @@ class BytecodeInstrumenter {
       case curClass =>
         //val className = curClass.getInputName() // deprecated in more recent versions of WALA
         val className = s"${curClass.getReader().getName()}.class"
-        val toInstrument = instrumentationMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, Iterable[FieldReference])]])
-        val toStub = stubMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, MethodReference)]])
+        val toInstrument = instrumentationMap.getOrElse(className, Map.empty[IMethod, Iterable[(Int, Iterable[FieldReference])]])
+        val toStub = stubMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, Patch)]])
         val toMakePublic = cbsToMakePublic.getOrElse(className, Set.empty[IMethod])        
         if (!toInstrument.isEmpty || !toStub.isEmpty || !toMakePublic.isEmpty) doInstrumentation(curClass, toInstrument, toStub, toMakePublic)        
         instrumentRec
@@ -123,7 +125,7 @@ class BytecodeInstrumenter {
   }   
   
   private def doInstrumentation(ci : ClassInstrumenter, toInstrument : Map[IMethod,Iterable[(Int, Iterable[FieldReference])]], 
-                                 toStub : Map[IMethod,Iterable[(Int, MethodReference)]],
+                                 toStub : Map[IMethod,Iterable[(Int, Patch)]],
                                  toMakePublic : Set[IMethod]) : Unit = {
     if (DEBUG) println(s"Instrumenting class ${ci.getReader().getName()}")
     def getMethod(methodData : MethodData, methods : Iterable[IMethod]) : Option[IMethod] = methods.find(m =>       
@@ -163,10 +165,7 @@ class BytecodeInstrumenter {
             }          
               
             val methodEditor = new MethodEditor(methodData)
-            methodEditor.beginPass()
-            
-            // bytecodes expect a semicolon after a type; add it
-            def typeRefToBytecodeType(typ : TypeReference) : String = s"${typ.getName().toString()};"
+            methodEditor.beginPass()                
             
             // transform each allocation x = new T() to { x := new T(); staticFieldName := x }
             // at the bytecode level, this is a transformation from new to { new T; dup; putstatic T staticFieldName }
@@ -176,8 +175,8 @@ class BytecodeInstrumenter {
                   if (DEBUG) println("Instrumenting extraction")
                   o.emit(DupInstruction.make(0)) // copy the allocation on the stack so we can do a put
                   val fieldName = staticField.getName().toString()                                        
-                  val fieldDeclaringClass = typeRefToBytecodeType(staticField.getDeclaringClass())
-                  val fieldType = typeRefToBytecodeType(staticField.getFieldType())
+                  val fieldDeclaringClass = ClassUtil.typeRefToBytecodeType(staticField.getDeclaringClass())
+                  val fieldType = ClassUtil.typeRefToBytecodeType(staticField.getFieldType())
                   val isStatic = true
                   o.emit(PutInstruction.make(fieldType, fieldDeclaringClass, fieldName, isStatic))
                 }         
@@ -185,8 +184,8 @@ class BytecodeInstrumenter {
             ))
             
             // transform calls to findViewById/findFragmentById with a constant first argument to view-specialized stubs
-            stubsTodo.foreach(pair => 
-              methodEditor.replaceWith(pair._1, new MethodEditor.Patch() {
+            stubsTodo.foreach(pair => methodEditor.replaceWith(pair._1, pair._2)
+              /*methodEditor.replaceWith(pair._1, new MethodEditor.Patch() {
                 override def emitTo(o : Output) : Unit = {
                   if (DEBUG) println("Instrumenting call to stub")
                   val m = pair._2
@@ -198,7 +197,7 @@ class BytecodeInstrumenter {
                                                 m.getName().toString(), 
                                                 IInvokeInstruction.Dispatch.STATIC))
                 }
-              })
+              })*/
             )
                               
             methodEditor.applyPatches() // commit the changes

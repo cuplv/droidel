@@ -11,7 +11,8 @@ object AndroidConstants {
     
   val APP_FRAGMENT_TYPE = "android.app.Fragment"
   // apparently much more commonly used because it has better backward compatibility
-  val FRAGMENT_TYPE = "android.support.v4.app.Fragment"           
+  val FRAGMENT_TYPE = "android.support.v4.app.Fragment"      
+  val FRAGMENT_MANAGER_TYPE = "android.support.v4.app.FragmentManager"    
 
   // interesting methods
   val FIND_VIEW_BY_ID = "findViewById"

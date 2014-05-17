@@ -1,18 +1,26 @@
 package edu.colorado.droidel.util
 
 import com.ibm.wala.classLoader.IClass
-import com.ibm.wala.types.ClassLoaderReference
 import com.ibm.wala.classLoader.IField
-import com.ibm.wala.ipa.callgraph.CGNode
 import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.types.FieldReference
+import com.ibm.wala.ipa.callgraph.CGNode
+import com.ibm.wala.ipa.callgraph.propagation.AllocationSiteInNode
+import com.ibm.wala.ipa.callgraph.propagation.InstanceKey
+import com.ibm.wala.ipa.cha.IClassHierarchy
+import com.ibm.wala.types.ClassLoaderReference
+import com.ibm.wala.types.MethodReference
+import com.ibm.wala.types.TypeName
+import com.ibm.wala.types.TypeReference
+import com.ibm.wala.util.strings.Atom
 import com.ibm.wala.ssa.SSAPutInstruction
 import com.ibm.wala.ssa.SSABinaryOpInstruction
 import com.ibm.wala.ssa.SSAGetInstruction
 import com.ibm.wala.ssa.SSAArrayLoadInstruction
 import com.ibm.wala.ssa.SSANewInstruction
+import com.ibm.wala.ssa.IR
 import com.ibm.wala.ssa.SSAArrayLengthInstruction
 import com.ibm.wala.ssa.SSAArrayStoreInstruction
+import com.ibm.wala.ssa.SSAPhiInstruction
 import com.ibm.wala.ssa.SSAInstruction
 import com.ibm.wala.ssa.SSAConditionalBranchInstruction
 import com.ibm.wala.ssa.SSAInstanceofInstruction
@@ -20,19 +28,10 @@ import com.ibm.wala.ssa.SSAUnaryOpInstruction
 import com.ibm.wala.ssa.SSACheckCastInstruction
 import com.ibm.wala.ssa.SSAAbstractInvokeInstruction
 import com.ibm.wala.ssa.SSAReturnInstruction
-import com.ibm.wala.ssa.IR
 import com.ibm.wala.shrikeBT.IConditionalBranchInstruction.Operator._
 import com.ibm.wala.shrikeBT.IBinaryOpInstruction.Operator._
 import com.ibm.wala.shrikeBT.IUnaryOpInstruction.Operator._
 import com.ibm.wala.shrikeBT.IShiftInstruction.Operator._
-import com.ibm.wala.ssa.SSAPhiInstruction
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.types.TypeReference
-import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.ipa.callgraph.propagation.AllocationSiteInNode
-import com.ibm.wala.ipa.callgraph.propagation.InstanceKey
-import com.ibm.wala.util.strings.Atom
-import com.ibm.wala.types.TypeName
 
 object ClassUtil {
   
@@ -89,6 +88,9 @@ object ClassUtil {
     stripWalaLeadingL(className).replace('/', '.').replace('$', '.')
   }
   def walaClassNameToPath(typ : TypeName) : String = stripWalaLeadingL(typ.toString())
+  
+  // bytecodes expect a semicolon after a type; add it
+  def typeRefToBytecodeType(typ : TypeReference) : String = s"${typ.getName().toString()};"
     
   def getNonReceiverParameterTypes(m : IMethod) : Iterable[TypeReference] = getParameterTypesInternal(m, 1)   
   def getParameterTypes(m : IMethod) : Iterable[TypeReference] = getParameterTypesInternal(m, 0)    

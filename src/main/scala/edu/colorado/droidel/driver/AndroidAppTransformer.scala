@@ -42,14 +42,20 @@ import com.ibm.wala.types.FieldReference
 import com.ibm.wala.ssa.SSANewInstruction
 import com.ibm.wala.ssa.SymbolTable
 import edu.colorado.droidel.preprocessor.ApkDecoder
+import edu.colorado.droidel.codegen.AndroidSystemServiceStubGenerator
+import edu.colorado.droidel.util.Types._
+import edu.colorado.droidel.codegen.AndroidLayoutStubGenerator
 
 object AndroidAppTransformer {
   private val DEBUG = false
-}
+} 
 
 class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : Boolean = true, cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
+  type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
+  type StubMap = Map[IMethod, TryCreatePatch]
+  
   val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
   val harnessMethodName = DroidelConstants.HARNESS_MAIN  
   
@@ -253,7 +259,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     // TODO: this won't work for multiple files!
     // tell the entrypoint creator to use findViewById() and findFragmentById() to create View's/Fragment's'
     
-    stubPaths.foldLeft (Map.empty[TypeReference,MethodReference]) ((m,stubPath) => {
+    stubPaths.foldLeft (Map.empty[TypeReference,MethodReference]) ((m, stubPath) => {
       val viewStubMethod = MethodReference.findOrCreate(ClassLoaderReference.Primordial, 
           ClassUtil.walaifyClassName(stubPath), AndroidConstants.FIND_VIEW_BY_ID, s"(I)$walaViewTypeName")    
       val fragmentStubMethod = MethodReference.findOrCreate(ClassLoaderReference.Primordial, 
@@ -263,17 +269,17 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   }
   
   private def instrumentForApplicationAllocatedCallbackTypes(cha : IClassHierarchy, appCreatedCbMap : Map[IClass,Set[IMethod]], 
-      specializedLayoutGettersMap : Map[LayoutId,MethodReference]) : (File, Iterable[FieldReference]) = {
+      patchMap : Map[IMethod, (SSAInvokeInstruction, SymbolTable) => Option[Patch]]) : (File, Iterable[FieldReference]) = {
     var dummyID = 0
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
     val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
     
-    val specializedMethodNames = Set(AndroidConstants.FIND_VIEW_BY_ID,  AndroidConstants.FIND_FRAGMENT_BY_ID)
+    /*val specializedMethodNames = Set(AndroidConstants.FIND_VIEW_BY_ID,  AndroidConstants.FIND_FRAGMENT_BY_ID)
     def isSpecializedMethod(m : MethodReference) : Boolean = specializedMethodNames.contains(m.getName().toString())
     def isSpecializedId(id : LayoutId) : Boolean = specializedLayoutGettersMap.contains(id)
     def isFirstParamSpecializedId(i : SSAInvokeInstruction, tbl : SymbolTable) : Boolean =
-      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))   
+      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))*/   
     
     def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
          
@@ -284,17 +290,17 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     // con: if some methods in the class hierarchy aren't reachable, we will extract their application-created callback types anyway.
     // this is sound, but not precise.
     val (instrFlds, allocMap, stubMap) = cha.foldLeft (List.empty[FieldReference], 
-                                                       Map.empty[String,Map[IMethod,Iterable[(Int,List[FieldReference])]]],
-                                                       Map.empty[String,Map[IMethod,Iterable[(Int,MethodReference)]]]) ((trio, clazz) =>
+                                                       Map.empty[String,Map[IMethod,Iterable[(Int, List[FieldReference])]]],
+                                                       Map.empty[String,Map[IMethod,Iterable[(Int, Patch)]]]) ((trio, clazz) =>
       if (!ClassUtil.isLibrary(clazz)) {
         val (flds, allocMap, stubMap) = clazz.getDeclaredMethods()
                                         .foldLeft (trio._1, 
                                                    Map.empty[IMethod,List[(Int, List[FieldReference])]],
-                                                   Map.empty[IMethod,Iterable[(Int,MethodReference)]]) ((trio, m) => {
+                                                   Map.empty[IMethod,Iterable[(Int, Patch)]]) ((trio, m) => {
           val ir = IRUtil.makeIR(m)
           if (ir != null) {
             val tbl = ir.getSymbolTable()
-            val (allocs, calls) = ir.getInstructions().zipWithIndex.foldLeft (List.empty[(Int, List[IClass])],List.empty[(Int,MethodReference)]) ((l, pair) => 
+            val (allocs, calls) = ir.getInstructions().zipWithIndex.foldLeft (List.empty[(Int, List[IClass])],List.empty[(Int, Patch)]) ((l, pair) => 
               pair._1 match {
                 case i : SSANewInstruction =>
                   cha.lookupClass(i.getConcreteType()) match {
@@ -309,10 +315,15 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                         ((pair._2, cbImpls) :: l._1, l._2)
                       }
                   }                
-                case i : SSAInvokeInstruction if isSpecializedMethod(i.getDeclaredTarget()) && isFirstParamSpecializedId(i, tbl) =>
-                  if (DEBUG) 
-                    println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method ${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
-                  (l._1, (pair._2, specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))) :: l._2)      
+                case i : SSAInvokeInstruction if patchMap.contains(cha.resolveMethod(i.getDeclaredTarget())) => 
+                  patchMap(cha.resolveMethod(i.getDeclaredTarget()))(i, tbl) match {
+                    case Some(patch) => 
+                      if (DEBUG) 
+                        println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method " +
+                                s"${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
+                      (l._1, (pair._2, patch) :: l._2)
+                    case None => l
+                  }                               
                 case _ => l
               }
             )      
@@ -380,7 +391,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   }
   
   private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy, manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
-      specializedLayoutGettersMap : Map[LayoutId,MethodReference], stubPaths : Iterable[String]) : Unit = {
+      stubMap : Map[IMethod, (SSAInvokeInstruction, SymbolTable) => Option[Patch]], 
+      stubPaths : Iterable[File]) : Unit = {
     println("Performing bytecode instrumentation")
     
     // make a map from framework class -> set of application classes implementing framework class)
@@ -444,7 +456,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       // (1) find all types allocated in the application and instrument the allocating method to extract the allocation via an instrumentation field
       // (2) make all callback methods in the appClassCbMap public so they can be called from the harness 
       val (instrumentedJar, instrumentationFields) = 
-        instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, specializedLayoutGettersMap)
+        instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
      
       timer.printTimeTaken("Performing bytecode instrumentation")
 
@@ -460,7 +472,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   private def generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
                                                       manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
                                                       instrumentationFields : Iterable[FieldReference],   
-                                                      stubPaths : Iterable[String],
+                                                      stubPaths : Iterable[File],
                                                       instrumentedJar : File, cha : IClassHierarchy) : File = {  
     
     // create fresh directory for instrumented bytecodes
@@ -487,9 +499,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     instrumentedBinDir
   }
 
-  def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) : (List[String], Map[Int,MethodReference]) = {
+  def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) : (Map[IMethod, (SSAInvokeInstruction, SymbolTable) => Option[Patch]],
+                                                                                          List[File]) = {
     println("Generating stubs")
-    val res = new AndroidStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(layoutMap, appBinPath)
+    val res = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath(), appBinPath).generateStubs()
+    
+    //new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs
+
     timer.printTimeTaken("Generating and compiling stubs")
     res
   }
@@ -514,8 +530,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     // parse app layout
     val (layoutMap, manifestDeclaredCallbackMap) = parseLayout(cha)
     // generate app-specialized stubs
-    val (stubPaths, specializedLayoutGettersMap) = generateStubs(layoutMap, cha)
-    val specializedLayoutTypeCreationMap = makeSpecializedLayoutTypeCreationMap(stubPaths)
+    val (specializedLayoutGettersMap, stubPaths) = generateStubs(layoutMap, cha)       
+    //val specializedLayoutTypeCreationMap = makeSpecializedLayoutTypeCreationMap(stubPaths)
     // inject the stubs via bytecode instrumentation and generate app-specialized harness
     doInstrumentationAndGenerateHarness(cha, manifestDeclaredCallbackMap, specializedLayoutGettersMap, stubPaths)
     

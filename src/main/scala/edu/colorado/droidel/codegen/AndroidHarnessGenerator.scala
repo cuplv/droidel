@@ -48,12 +48,12 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
   
   var initAllocs = List.empty[Statement]  
   
-  def makeSpecializedViewInhabitantCache(stubPaths : Iterable[String]) = {
+  def makeSpecializedViewInhabitantCache(stubPaths : Iterable[File]) = {
     def makeClass(className : String) : IClass = 
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(className)))
       
     assert(stubPaths.size == 1, s"Assuming that we only generate a single stub for now, but found $stubPaths")
-    val stubClass = stubPaths.head.replace(File.separatorChar, '.')
+    val stubClass = stubPaths.head.getName().replace(File.separatorChar, '.')
 
     val viewClass = makeClass(AndroidConstants.VIEW_TYPE)
     val fragmentClass = makeClass(AndroidConstants.FRAGMENT_TYPE)

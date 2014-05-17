@@ -8,4 +8,5 @@ object Types {
   type CmpOp = com.ibm.wala.shrikeBT.IConditionalBranchInstruction.IOperator
   type BinOp = com.ibm.wala.shrikeBT.IBinaryOpInstruction.IOperator  
   type UnOp = com.ibm.wala.shrikeBT.IUnaryOpInstruction.IOperator    
+  type Patch = com.ibm.wala.shrikeBT.MethodEditor.Patch
 }
