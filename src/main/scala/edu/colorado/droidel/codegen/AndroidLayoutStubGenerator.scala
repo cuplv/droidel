@@ -33,6 +33,7 @@ import com.ibm.wala.ssa.SSAInvokeInstruction
 import com.ibm.wala.ssa.SymbolTable
 import edu.colorado.droidel.constants.AndroidConstants
 import com.ibm.wala.classLoader.IMethod
+import com.ibm.wala.ssa.IR
 
 
 object AndroidLayoutStubGenerator {
@@ -47,15 +48,13 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
   // this creates complications for things like duplicate id's
   val SMUSH_VIEWS = true  
     
-  type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
-  type StubMap = Map[IMethod, TryCreatePatch]
   type LayoutId = Int
   type VarName = String
   type Expression = String
   type Statement = String
   
   /** @param appBinPath - path to app's binaries, needed to compile stubs */
-  override def generateStubs() : (StubMap, List[File]) =
+  override def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) =
     if (SMUSH_VIEWS) {
       val (allViews, allFragments) = resourceMap.foldLeft (List.empty[LayoutView], List.empty[LayoutFragment]) ((pair, entry) => {
         entry._2.foldLeft (pair) ((pair, e) => e match {
@@ -71,7 +70,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
         })
       })
       
-      generateWalaStubs(allViews, allFragments, Nil, Map.empty[LayoutId, MethodReference], STUB_CLASS, appBinPath)
+      generateWalaStubs(allViews, allFragments, stubMap, generatedStubs, Map.empty[LayoutId, MethodReference], 
+                        LAYOUT_STUB_CLASS, appBinPath)
     } else sys.error("Only smushed views implemented for now") 
       /*resourceMap.foldLeft (List.empty[File], Map.empty[Int,MethodReference]) ((m, entry) => {
       val (views, fragments) = entry._2.foldLeft (List.empty[LayoutView], List.empty[LayoutFragment]) ((pair, e) => e match {
@@ -113,7 +113,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
   class InhabitedLayoutElement(val name : String, val id : Option[Int], val inhabitant : Expression, val typ : TypeReference)
   
   // generate a Java class with stubs for UI element lookups such as findViewById and findFragmentById
-  private def generateWalaStubs(views : Iterable[LayoutView], fragments : Iterable[LayoutFragment], generatedStubs : List[File],
+  private def generateWalaStubs(views : Iterable[LayoutView], fragments : Iterable[LayoutFragment], 
+                                stubMap : StubMap, generatedStubs : List[File],
                                 specializedGetterMap : Map[LayoutId,MethodReference], 
                                 stubClassName : String, appBinPath : String) : (StubMap, List[File]) = {
     val inhabitor = new TypeInhabitor  
@@ -225,13 +226,16 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
         case Some(id) => 
           val generatedName = s"${getterName}$id"
           val methodRetval = ClassUtil.deWalaifyClassName(v.typ)
+          //if (getterName == "getFragment") writer.beginMethod(FRAGMENT_TYPE, generatedName, EnumSet.of(PUBLIC, STATIC))
+          //else writer.beginMethod(methodRetval, generatedName, EnumSet.of(PUBLIC, STATIC))
           writer.beginMethod(methodRetval, generatedName, EnumSet.of(PUBLIC, STATIC))
           writer.emitStatement(s"return ${v.name}")
           writer.endMethod()
 
           val sig = s"()${v.typ.getName().toString()}"
           specializedGetterMap + 
-            (id -> MethodReference.findOrCreate(ClassLoaderReference.Application, 
+            //(id -> MethodReference.findOrCreate(ClassLoaderReference.Application, 
+          (id -> MethodReference.findOrCreate(ClassLoaderReference.Primordial,
                                                 ClassUtil.walaifyClassName(s"$STUB_DIR.$stubClassName"), generatedName, sig))
         case None => specializedGetterMap
       })   
@@ -260,41 +264,41 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
     assert(compiled, s"Couldn't compile stub file $stubPath")    
     // TODO: pass path of generated stubs out for easier cleanup later
-    (makeStubMap(specializedGetters), new File(stubPath) :: generatedStubs)
+    (makeStubMap(specializedGetters, stubMap), new File(stubPath) :: generatedStubs)
   }
   
-  private def makeStubMap(specializedLayoutGettersMap : Map[LayoutId, MethodReference]) : StubMap = {
+  private def makeStubMap(specializedLayoutGettersMap : Map[LayoutId, MethodReference], stubMap : StubMap) : StubMap = {
     def isSpecializedId(id : LayoutId) : Boolean = specializedLayoutGettersMap.contains(id)
     def isFirstParamSpecializedId(i : SSAInvokeInstruction, tbl : SymbolTable) : Boolean =
-      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))    
-      
-    def makeTypeRef(typeName : String) : TypeReference = {
-      TypeReference.findOrCreate(ClassLoaderReference.Application, ClassUtil.walaifyClassName(typeName))
-    }
+      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))          
           
-    val viewTypeRef = makeTypeRef(AndroidConstants.VIEW_TYPE)
-    val activityTypeRef = makeTypeRef(AndroidConstants.ACTIVITY_TYPE)
-    val fragmentManagerTypeRef = makeTypeRef(AndroidConstants.FRAGMENT_MANAGER_TYPE)
+    val viewTypeRef = ClassUtil.makeTypeRef(AndroidConstants.VIEW_TYPE)
+    val activityTypeRef = ClassUtil.makeTypeRef(AndroidConstants.ACTIVITY_TYPE)
+    val fragmentManagerTypeRef = ClassUtil.makeTypeRef(AndroidConstants.FRAGMENT_MANAGER_TYPE)
     
     val findViewByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(AndroidConstants.VIEW_TYPE)}"
-     val findFragmentByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE)}"
+    val findFragmentByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE)}"
     
+    // TODO: check the class hierarchy for overrides of findViewById? 
     val findViewById = cha.resolveMethod(MethodReference.findOrCreate(viewTypeRef, AndroidConstants.FIND_VIEW_BY_ID, findViewByIdDescriptor))
     val activityFindViewById = cha.resolveMethod(MethodReference.findOrCreate(activityTypeRef, AndroidConstants.FIND_VIEW_BY_ID, findViewByIdDescriptor))    
     val findFragmentById = cha.resolveMethod(MethodReference.findOrCreate(fragmentManagerTypeRef, AndroidConstants.FIND_FRAGMENT_BY_ID, findFragmentByIdDescriptor))    
+        
+    val findViewByIdMeths = List(findViewById, activityFindViewById, findFragmentById)    
     
-    val findViewByIdMeths = List(findViewById, activityFindViewById, findFragmentById)
-    
-    def tryCreatePatch(i : SSAInvokeInstruction, tbl : SymbolTable) : Option[Patch] = 
-      if (isFirstParamSpecializedId(i, tbl)) Some(createShrikePatch(specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))))
+    def tryCreatePatch(i : SSAInvokeInstruction, ir : IR) : Option[Patch] = {
+      val tbl = ir.getSymbolTable
+      if (!ClassUtil.isLibrary(ir.getMethod()) && // we only want to inject these stubs in application code
+          isFirstParamSpecializedId(i, tbl)) Some(createShrikePatch(specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))))
       else None // TODO: add call to Stubs.findViewById(param) for non-specialized cases heres
+    }
       
-    findViewByIdMeths.foldLeft (Map.empty[IMethod, TryCreatePatch]) ((map, method) => if (method != null) map + (method -> tryCreatePatch) else map)
+    findViewByIdMeths.foldLeft (stubMap) ((map, method) => if (method != null) map + (method -> tryCreatePatch) else map)
   }
   
   private def createShrikePatch(m : MethodReference) : Patch = new Patch() {
     override def emitTo(o : Output) : Unit = {
-      if (DEBUG) println("Instrumenting call to stub")
+      if (DEBUG) println("Instrumenting call to layout stub")
       o.emit(PopInstruction.make(1)) // pop the constant passed to findViewById/findFragmentById off the stack
       o.emit(PopInstruction.make(1)) // pop the receiver of findViewById/findFragmentById off the stack
       val methodClass = ClassUtil.typeRefToBytecodeType(m.getDeclaringClass())

@@ -3,6 +3,7 @@ package edu.colorado.droidel.codegen
 import java.io.StringWriter
 import com.squareup.javawriter.JavaWriter
 import java.io.File
+import scala.collection.JavaConversions._
 import edu.colorado.droidel.constants.DroidelConstants._
 import java.util.EnumSet
 import javax.lang.model.element.Modifier.FINAL
@@ -16,12 +17,25 @@ import com.ibm.wala.ipa.cha.IClassHierarchy
 import java.io.FileWriter
 import AndroidSystemServiceStubGenerator._
 import edu.colorado.droidel.util.JavaUtil
+import edu.colorado.droidel.util.Types._
+import edu.colorado.droidel.constants.AndroidConstants
+import com.ibm.wala.types.MethodReference
+import com.ibm.wala.shrikeBT.MethodEditor.Output
+import com.ibm.wala.shrikeBT.PopInstruction
+import com.ibm.wala.shrikeBT.InvokeInstruction
+import com.ibm.wala.shrikeBT.IInvokeInstruction
+import com.ibm.wala.shrikeBT.SwapInstruction
+import com.ibm.wala.ssa.SSAInvokeInstruction
+import com.ibm.wala.ssa.SymbolTable
+import edu.colorado.droidel.util.CHAUtil
+import com.ibm.wala.classLoader.IMethod
+import com.ibm.wala.ssa.IR
 
 object AndroidSystemServiceStubGenerator {
   val DEBUG = false
 }
 
-class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : String) {  
+class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : String) extends AndroidStubGenerator {  
   
   val SYSTEM_SERVICES_MAP = Map(
     "accessibility" -> "android.view.accessibility.AccessibilityManager",
@@ -48,8 +62,8 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
   type Expression = String
   type Statement = String
   
-  def generateStubs() : Unit = {
-    val stubClassName = "GeneratedSystemServiceStubs"
+  override def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) = {
+    val GET_SYSTEM_SERVICE = "getSystemService"
       
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
@@ -78,7 +92,7 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     allServices.foreach(typ => writer.emitImports(typ))      
     writer.emitEmptyLine()
     
-    writer.beginType(stubClassName, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
+    writer.beginType(SYSTEM_SERVICE_STUB_CLASS, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
     SYSTEM_SERVICES_MAP.foreach(entry => writer.emitField(entry._2, entry._1, EnumSet.of(PRIVATE, STATIC)))
     writer.emitEmptyLine()
     
@@ -98,7 +112,7 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     
     // emit stub for Context.getSystemService(String)
     val paramName = "name"
-    writer.beginMethod("Object", "getSystemService", EnumSet.of(PUBLIC, STATIC), "String", paramName)
+    writer.beginMethod("Object", GET_SYSTEM_SERVICE, EnumSet.of(PUBLIC, STATIC), "String", paramName)
     writer.beginControlFlow(s"switch ($paramName)") // begin switch
     inhabitantMap.keys.foreach(key => writer.emitStatement("case \"" + key + "\": return " + key))
     writer.emitStatement("default: return null")
@@ -107,21 +121,57 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     writer.endType() // end class
     
     // write out stub to file
-    val stubPath = s"$STUB_DIR${File.separator}$stubClassName"
+    val stubPath = s"$STUB_DIR${File.separator}$SYSTEM_SERVICE_STUB_CLASS"
     val fileWriter = new FileWriter(s"${stubPath}.java")
-    println(s"Generated stub: ${strWriter.toString()}")
+    if (DEBUG) println(s"Generated stub: ${strWriter.toString()}")
     fileWriter.write(strWriter.toString())    
     // cleanup
     strWriter.close()
     writer.close()    
     fileWriter.close()
-
     
-     // compile stub against Android library 
+    // compile stub against Android library 
     val compilerOptions = List("-cp", s"${androidJarPath}")
     if (DEBUG) println(s"Running javac ${compilerOptions(0)} ${compilerOptions(1)}")
     val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
     assert(compiled, s"Couldn't compile stub file $stubPath")   
-  }
+    
+    val getSystemServiceDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;"
+    val contextTypeRef = ClassUtil.makeTypeRef(AndroidConstants.CONTEXT_TYPE)
+    val getSystemServiceRef = MethodReference.findOrCreate(contextTypeRef, GET_SYSTEM_SERVICE, getSystemServiceDescriptor)
+    val getSystemService = cha.resolveMethod(getSystemServiceRef)
+    assert(getSystemService != null, "Couldn't find getSystemService() method")
+    
+    // get all the library methods that a call to getSystemService() might dispatch to (ignoring covariance for simplicity's sake)
+    val possibleOverrides = cha.computeSubClasses(contextTypeRef).foldLeft (List(getSystemService)) ((l, c) =>
+      if (!ClassUtil.isLibrary(c)) l
+      else c.getDeclaredMethods().foldLeft (l) ((l, m) =>
+        if (m.getName().toString() == GET_SYSTEM_SERVICE && m.getDescriptor().toString() == getSystemServiceDescriptor) m :: l
+        else l
+      )
+    )     
+    
+    val stubTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, s"L$STUB_DIR/$SYSTEM_SERVICE_STUB_CLASS")
+    val shrikePatch = new Patch() {
+      override def emitTo(o : Output) : Unit = {
+        if (DEBUG) println("Instrumenting call to system service stub")
+        // the stack is [String argument to getSystemService, receiver of getSystemService]. we want to get rid of the receiver,
+        // but keep the string argument. we do this by performing a swap, then a pop to get rid of the receiver
+        o.emit(SwapInstruction.make()) // swap the String argument and receiver on the stack     
+        o.emit(PopInstruction.make(1)) // pop the receiver of getSystemService off the stack
+        val methodClass = ClassUtil.typeRefToBytecodeType(stubTypeRef)
+        o.emit(InvokeInstruction.make(getSystemServiceDescriptor, 
+               methodClass,
+               GET_SYSTEM_SERVICE, 
+               IInvokeInstruction.Dispatch.STATIC)
+        )
+      }
+    }
+    
+    def tryCreatePatch(i : SSAInvokeInstruction, ir : IR) : Option[Patch] = Some(shrikePatch)
+    
+    (possibleOverrides.foldLeft (stubMap) ((map, method) => map + (method -> tryCreatePatch)),
+     new File(stubPath) :: generatedStubs)
+  }   
   
 }

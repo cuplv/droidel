@@ -45,12 +45,14 @@ import edu.colorado.droidel.preprocessor.ApkDecoder
 import edu.colorado.droidel.codegen.AndroidSystemServiceStubGenerator
 import edu.colorado.droidel.util.Types._
 import edu.colorado.droidel.codegen.AndroidLayoutStubGenerator
+import com.ibm.wala.ssa.IR
 
 object AndroidAppTransformer {
   private val DEBUG = false
 } 
 
-class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : Boolean = true, cleanupGeneratedFiles : Boolean = true) {
+class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : Boolean = true, 
+                            instrumentLibs : Boolean = true, cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
@@ -121,6 +123,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   // load Android libraries/our stubs in addition to the normal analysis scope loading 
   def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
+    println("Creating analysis scope")
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = 
       if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
@@ -138,9 +141,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       Some(f)
     } else None
     
-    // TODO: this will need to change if we start generating more than one stub class
-    //val stubFilePath = s"${binPath}${File.separator}${DroidelConstants.STUB_DIR}${DroidelConstants.STUB_CLASS}.class"
-    val stubFilePath = List(binPath, DroidelConstants.STUB_DIR, s"${DroidelConstants.STUB_CLASS}.class").mkString(File.separator)
+    val layoutStubFilePath = List(binPath, DroidelConstants.STUB_DIR, s"${DroidelConstants.LAYOUT_STUB_CLASS}.class").mkString(File.separator)
    
     val manifestUsedActivities = manifest.activities.foldLeft (Set.empty[String]) ((s, a) => 
       s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
@@ -155,15 +156,20 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       if (f.getAbsolutePath().contains(applicationCodePath) ||
           // if we have library code that is declared as an application Activity in the manifest, load in in the Application scope
           manifestUsedActivities.contains(f.getAbsolutePath) ||
-          // make sure the stubs are loaded as application
-          f.getAbsolutePath().contains(stubFilePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
-      // ensure the harness class (if any) is only loaded as application; we don't want to reload it as primordial
+          // make sure the *layout* stubs are loaded as application. this is necessary because the layout stubs can allocate application-defined
+          // types (such as application-defined Fragments). if we load these stubs as library, WALA won't respect these allocations
+          // on the other hand, we want other stubs to be loaded as library because some (such as system service stubs) are used
+          // to instrument the code of the Android libraries themselves
+          f.getAbsolutePath().contains(layoutStubFilePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
+      // ensure the harness class (if any) is only loaded as application; we don't want to reload it as library
       else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath()) analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
     })
         
     // if we're using JPhantom, all of the application code and all non-core Java library code (including the Android library)
     // has been deposited into the app bin directory, which has already been loaded. otherwise, we need to load library code
     if (!useJPhantom || binPath == unprocessedBinPath) {
+      println("adding android JAR")
+      println("unprocessed path is " + unprocessedBinPath)
       // load JAR libraries in libs directory as library code
       libJars.foreach(f => analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(f)))
       // load Android JAR file as library code
@@ -269,7 +275,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   }
   
   private def instrumentForApplicationAllocatedCallbackTypes(cha : IClassHierarchy, appCreatedCbMap : Map[IClass,Set[IMethod]], 
-      patchMap : Map[IMethod, (SSAInvokeInstruction, SymbolTable) => Option[Patch]]) : (File, Iterable[FieldReference]) = {
+      patchMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]]) : (File, Iterable[FieldReference]) = {
     var dummyID = 0
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
@@ -292,7 +298,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     val (instrFlds, allocMap, stubMap) = cha.foldLeft (List.empty[FieldReference], 
                                                        Map.empty[String,Map[IMethod,Iterable[(Int, List[FieldReference])]]],
                                                        Map.empty[String,Map[IMethod,Iterable[(Int, Patch)]]]) ((trio, clazz) =>
-      if (!ClassUtil.isLibrary(clazz)) {
+      if (instrumentLibs || !ClassUtil.isLibrary(clazz)) {                                                        
         val (flds, allocMap, stubMap) = clazz.getDeclaredMethods()
                                         .foldLeft (trio._1, 
                                                    Map.empty[IMethod,List[(Int, List[FieldReference])]],
@@ -302,7 +308,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
             val tbl = ir.getSymbolTable()
             val (allocs, calls) = ir.getInstructions().zipWithIndex.foldLeft (List.empty[(Int, List[IClass])],List.empty[(Int, Patch)]) ((l, pair) => 
               pair._1 match {
-                case i : SSANewInstruction =>
+                case i : SSANewInstruction if !ClassUtil.isLibrary(m)  =>
                   cha.lookupClass(i.getConcreteType()) match {
                     case null => l
                     case clazz =>
@@ -316,7 +322,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                       }
                   }                
                 case i : SSAInvokeInstruction if patchMap.contains(cha.resolveMethod(i.getDeclaredTarget())) => 
-                  patchMap(cha.resolveMethod(i.getDeclaredTarget()))(i, tbl) match {
+                  patchMap(cha.resolveMethod(i.getDeclaredTarget()))(i, ir) match {
                     case Some(patch) => 
                       if (DEBUG) 
                         println(s"Stubbing out call of ${ClassUtil.pretty(i.getDeclaredTarget())} in method " +
@@ -391,7 +397,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   }
   
   private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy, manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
-      stubMap : Map[IMethod, (SSAInvokeInstruction, SymbolTable) => Option[Patch]], 
+      stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], 
       stubPaths : Iterable[File]) : Unit = {
     println("Performing bytecode instrumentation")
     
@@ -499,13 +505,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     instrumentedBinDir
   }
 
-  def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) : (Map[IMethod, (SSAInvokeInstruction, SymbolTable) => Option[Patch]],
+  def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) : (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
                                                                                           List[File]) = {
     println("Generating stubs")
-    val res = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath(), appBinPath).generateStubs()
-    
-    //new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs
-
+    val (stubMap, generatedStubs) = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath(), appBinPath).generateStubs()
+    val res = new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
     timer.printTimeTaken("Generating and compiling stubs")
     res
   }

@@ -15,11 +15,18 @@ object Regression {
       assert(androidJar.exists(), s"Couldn't find Android JAR ${androidJar.getAbsolutePath()}")
       val testPrefix = s"src${File.separator}test${File.separator}resources${File.separator}regression${File.separator}"
       
+      val jPhantomTests = Set("SystemService")
+      val instrumentLibTests = Set("SystemService")
+      
       val tests = List("HoistTest1", "HoistTest2", "ProtectedCallback", "ViewLookup", "LifecycleAndInterfaceCallback",
-                         "SupportFragment")
+                       "SupportFragment", "SystemService")
+                       
+      //val tests0 = List("SystemService")                       
 
       tests.foreach(test => {
       	val testPath = s"$testPrefix$test"
+      	val useJPhantom = jPhantomTests.contains(test)
+      	val instrumentLibs = instrumentLibTests.contains("test")
       
       	val droidelOutBinDir = new File(s"${testPath}/${DroidelConstants.DROIDEL_BIN_SUFFIX}")
       	// clear Droidel output if it already exists
@@ -27,8 +34,9 @@ object Regression {
       
       	// generate stubs and a specialized harness for the app
       	val transformer = new AndroidAppTransformer(testPath, androidJar, 
+      	                                            instrumentLibs = instrumentLibs,
       	// our tests should have all the library dependencies included, so we don't need JPhantom
-                                                    useJPhantom = false,
+                                                    useJPhantom = useJPhantom,
         // we don't want to keep the generated source files for the stubs/harness
                                                     cleanupGeneratedFiles = true)
       	transformer.transformApp() // do it
@@ -52,6 +60,10 @@ object Regression {
       
       	// clean up after ourselves
       	Util.deleteAllFiles(droidelOutBinDir)
+      	if (useJPhantom) {
+      	  val jphantomBinDir = new File(s"${testPath}/${DroidelConstants.JPHANTOMIZED_BIN_SUFFIX}")
+      	  if (jphantomBinDir.exists()) Util.deleteAllFiles(jphantomBinDir)
+      	}
       })
     }
   }

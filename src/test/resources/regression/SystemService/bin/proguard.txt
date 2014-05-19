@@ -1,0 +1,3 @@
+# view AndroidManifest.xml #generated:17
+-keep class com.test.systemservice.MainActivity { <init>(...); }
+

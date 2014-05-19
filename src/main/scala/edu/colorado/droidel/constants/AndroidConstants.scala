@@ -2,6 +2,7 @@ package edu.colorado.droidel.constants
 
 object AndroidConstants {  
   // interesting classes
+  val CONTEXT_TYPE = "android.content.Context"
   val ACTIVITY_TYPE = "android.app.Activity"
   val SERVICE_TYPE = "android.app.Service"
   val BROADCAST_RECEIVER_TYPE = "android.content.BroadcastReceiver"

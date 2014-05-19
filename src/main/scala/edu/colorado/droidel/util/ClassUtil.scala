@@ -89,6 +89,10 @@ object ClassUtil {
   }
   def walaClassNameToPath(typ : TypeName) : String = stripWalaLeadingL(typ.toString())
   
+  def makeTypeRef(typeName : String) : TypeReference = {
+    TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(typeName))
+  }
+       
   // bytecodes expect a semicolon after a type; add it
   def typeRefToBytecodeType(typ : TypeReference) : String = s"${typ.getName().toString()};"
     

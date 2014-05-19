@@ -28,8 +28,8 @@ class AbsurdityIdentifier(harnessClassName : String) {
   
   def isGeneratedMethod(m : IMethod) : Boolean = { 
     val className = m.getDeclaringClass().getName().toString()
-    className.startsWith(s"L${DroidelConstants.STUB_DIR}") ||
-    className.startsWith(s"L${DroidelConstants.HARNESS_DIR}")// ||
+    /*className.startsWith(s"L${DroidelConstants.STUB_DIR}") ||
+    className.startsWith(s"L${DroidelConstants.HARNESS_DIR}")*/ 
     className == harnessClassName
   } 
   
@@ -48,7 +48,14 @@ class AbsurdityIdentifier(harnessClassName : String) {
     import walaRes._
   
     //cha.foreach(c => println(c))    
-    //cg.foreach(n => if (!ClassUtil.isLibrary(n) || isGeneratedMethod(n.getMethod())) println(n.getIR()))
+    /*cg.foreach(n => if (!ClassUtil.isLibrary(n) || isGeneratedMethod(n.getMethod()) 
+        || n.getMethod().getDeclaringClass().getName().toString().contains("AccountManager")) {
+      println(n.getIR())
+      n.getIR().iterateCallSites().foreach(site => { 
+        val tgts = cg.getPossibleTargets(n, site)
+        if (tgts.isEmpty()) println("No targets for call site " + site + " in " + ClassUtil.pretty(n))
+      })
+    })*/
     
     val methodNodeMap = cg.filter(n => !ClassUtil.isLibrary(n) && !isGeneratedMethod(n.getMethod())).groupBy(n => n.getMethod().getReference())           
         

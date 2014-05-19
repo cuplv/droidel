@@ -52,17 +52,16 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     def makeClass(className : String) : IClass = 
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(className)))
       
-    assert(stubPaths.size == 1, s"Assuming that we only generate a single stub for now, but found $stubPaths")
-    val stubClass = stubPaths.head.getName().replace(File.separatorChar, '.')
+    val layoutStubClass = s"${DroidelConstants.STUB_DIR}.${DroidelConstants.LAYOUT_STUB_CLASS}"
+    //val stubClass = stubPaths.head.getName().replace(File.separatorChar, '.')
 
     val viewClass = makeClass(AndroidConstants.VIEW_TYPE)
     val fragmentClass = makeClass(AndroidConstants.FRAGMENT_TYPE)
     
-    val (alloc, freshVar) = inhabitor.mkAssign(viewClass, s"$stubClass.findViewById(-1)")
+    val (alloc, freshVar) = inhabitor.mkAssign(viewClass, s"$layoutStubClass.findViewById(-1)")
     initAllocs = alloc :: initAllocs
     inhabitantCache.put(viewClass, freshVar)
-  }
-  
+  }  
   
   // take framework-allocated types and FieldReference's corresponding to instrumentation variables as input 
   def generateHarness(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
