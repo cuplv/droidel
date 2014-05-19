@@ -88,7 +88,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
         val appBinFile = new File(unprocessedBinPath)        
         val originalJarName = "original.jar"
         // create JAR containing original classes
-        val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true)                
+        val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true) 
         val jPhantomTimer = new Timer
         jPhantomTimer.start
         val success = new CHAComplementer(originalJar, androidJar :: libJars, jPhantomizedBinDir).complement
@@ -168,8 +168,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     // if we're using JPhantom, all of the application code and all non-core Java library code (including the Android library)
     // has been deposited into the app bin directory, which has already been loaded. otherwise, we need to load library code
     if (!useJPhantom || binPath == unprocessedBinPath) {
-      println("adding android JAR")
-      println("unprocessed path is " + unprocessedBinPath)
       // load JAR libraries in libs directory as library code
       libJars.foreach(f => analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(f)))
       // load Android JAR file as library code

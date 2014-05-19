@@ -19,14 +19,12 @@ object Regression {
       val instrumentLibTests = Set("SystemService")
       
       val tests = List("HoistTest1", "HoistTest2", "ProtectedCallback", "ViewLookup", "LifecycleAndInterfaceCallback",
-                       "SupportFragment", "SystemService")
-                       
-      //val tests0 = List("SystemService")                       
-
+                       "SupportFragment", "SystemService")                       
+                      
       tests.foreach(test => {
       	val testPath = s"$testPrefix$test"
       	val useJPhantom = jPhantomTests.contains(test)
-      	val instrumentLibs = instrumentLibTests.contains("test")
+      	val instrumentLibs = instrumentLibTests.contains(test)
       
       	val droidelOutBinDir = new File(s"${testPath}/${DroidelConstants.DROIDEL_BIN_SUFFIX}")
       	// clear Droidel output if it already exists
