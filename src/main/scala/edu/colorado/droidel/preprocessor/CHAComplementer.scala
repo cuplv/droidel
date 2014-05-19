@@ -50,9 +50,12 @@ class CHAComplementer(appJar : File, libJars : List[File], jPhantomOutDir : File
       }
     } catch {
       case e : Throwable => 
-        println(s"JPhantom failed: $e. Continuing.")
-        sys.exit(1)
-        false
+        println(s"JPhantom failed: $e. Continuing")
+        // JPhantom didn't work. fail gracefully by
+        // extracting the input JAR in the JPhantom directory and moving on
+        JavaUtil.extractJar(new File(jPhantomIn), jPhantomOutDir.getAbsolutePath())
+        true
+        //false
     }    
    
     // delete the input JAR to JPhantom that we created

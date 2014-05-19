@@ -74,10 +74,10 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   }
   
   val unprocessedBinPath = s"${appPath}${DroidelConstants.BIN_SUFFIX}"
-  private val appBinPath = { // path to the bytecodes for the app
+  private val appBinPath = { // path to the bytecodes for the app       
     if (useJPhantom) {
       // check for bytecodes that have been processed with JPhantom and use them
-      // if they exist. otherwise, created them
+      // if they exist. otherwise, create them
       val jPhantomizedBinPath = s"${appPath}${DroidelConstants.JPHANTOMIZED_BIN_SUFFIX}"
       val jPhantomizedBinDir = new File(jPhantomizedBinPath)
       if (jPhantomizedBinDir.exists() && jPhantomizedBinDir.list().length != 0) {
@@ -91,7 +91,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
         val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true) 
         val jPhantomTimer = new Timer
         jPhantomTimer.start
-        val success = new CHAComplementer(originalJar, androidJar :: libJars, jPhantomizedBinDir).complement
+        val success = new CHAComplementer(originalJar, androidJar :: libJars, jPhantomizedBinDir).complement        
         jPhantomTimer.printTimeTaken("Running JPhantom")
         // remove the JAR we made
         originalJar.delete()
