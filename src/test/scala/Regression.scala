@@ -20,7 +20,7 @@ object Regression {
       
       val tests = List("HoistTest1", "HoistTest2", "ProtectedCallback", "ViewLookup", "LifecycleAndInterfaceCallback",
                        "SupportFragment", "SystemService")                       
-                      
+
       tests.foreach(test => {
       	val testPath = s"$testPrefix$test"
       	val useJPhantom = jPhantomTests.contains(test)

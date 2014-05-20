@@ -226,11 +226,15 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
    // collect callbacks registered in the manifest
   private def collectManifestDeclaredCallbacks(layoutMap : Map[IClass,Set[LayoutElement]]) : Map[IClass,Set[IMethod]] = {    
-    def getEventHandlerMethod(eventHandlerName : String, parentClass : IClass) : IMethod = {
-      val eventHandlers = parentClass.getDeclaredMethods().collect({ case m if m.getName().toString() == eventHandlerName => m })
-      assert(eventHandlers.size == 1, s"Expected to find exactly one method with name $eventHandlerName; found $eventHandlers")
-      eventHandlers.head
-    }
+    def getEventHandlerMethod(eventHandlerName : String, parentClass : IClass) : Option[IMethod] =
+      parentClass.getAllMethods().collect({ case m if m.getName().toString() == eventHandlerName => m }) match {
+        case eventHandlers if eventHandlers.isEmpty =>
+          println(s"Warning: couldn't find manifest-declared event handler method $eventHandlerName as a method on ${ClassUtil.pretty(parentClass)}")
+          None          
+        case eventHandlers =>
+          if (eventHandlers.size > 1) println(s"Warning: expected to find exactly one method with name $eventHandlerName; found $eventHandlers")
+          Some(eventHandlers.head)
+      }
     
     layoutMap.foldLeft (Map.empty[IClass,Set[IMethod]]) ((m, entry) => entry._2.foldLeft (m) ((m, v) => v match {
       case v : LayoutView => 
@@ -239,9 +243,12 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
             val callbackClass = entry._1
             // this event handler method was explicitly declared in the manifest (rather than using the default onClick) 
             // look up its parent class, create a MethodReference, and add it to our set of manifest-declared entrypoints
-            val callback = getEventHandlerMethod(onClick, callbackClass)
-            if (DEBUG) println("Adding manifest-declared entrypoint entrypoint")
-            Util.updateSMap(m, callbackClass, callback)
+            getEventHandlerMethod(onClick, callbackClass) match {
+              case Some(callback) =>
+                if (DEBUG) println("Adding manifest-declared entrypoint entrypoint")
+                Util.updateSMap(m, callbackClass, callback)
+              case None => m
+            }
           case None => m // no event handler declared for this layout view
         }
       case v : LayoutFragment =>
