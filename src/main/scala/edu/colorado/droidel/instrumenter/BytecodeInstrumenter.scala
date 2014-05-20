@@ -88,7 +88,9 @@ class BytecodeInstrumenter {
       case access if isPublic(access) => access
       case access if isProtected(access) => (access & ~ClassConstants.ACC_PROTECTED) | ClassConstants.ACC_PUBLIC
       case access if isPrivate(access) => (access & ~ClassConstants.ACC_PRIVATE) | ClassConstants.ACC_PUBLIC
-      case _ => sys.error(s"Unknown access level $access")
+      case _ => 
+        println(s"Warning: unknown access level $access. Bad decompilation suspected")
+        access | ClassConstants.ACC_PUBLIC
     }
       
     def collectAttrs(methodNum : Int) : Array[Element] = {
