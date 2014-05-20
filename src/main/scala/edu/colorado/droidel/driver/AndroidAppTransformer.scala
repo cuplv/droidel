@@ -123,7 +123,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   
   // load Android libraries/our stubs in addition to the normal analysis scope loading 
   def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
-    println("Creating analysis scope")
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = 
       if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
@@ -131,7 +130,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
     val applicationCodeDir = new File(applicationCodePath)
     assert(applicationCodeDir.exists() && applicationCodeDir.isDirectory(), 
-      s"Directory ${applicationCodeDir.getAbsolutePath()} should contain application bytecodes, but does not exist")
+      s"Directory ${applicationCodeDir.getAbsolutePath()} should contain application bytecodes, but does not exist (or is not a directory)")
       
     val analysisScope = AnalysisScope.createJavaAnalysisScope()
 

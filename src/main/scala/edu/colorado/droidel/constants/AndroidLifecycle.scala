@@ -109,7 +109,7 @@ object AndroidLifecycle {
         cbMethods.map(m => {
           val methodRef = MethodReference.findOrCreate(frameworkTypeRef, Selector.make(m))
           cha.resolveMethod(methodRef) match {
-            case null => sys.error(s"Couldn't find method $methodRef on class $frameworkType")
+            case null => sys.error(s"Couldn't find method $methodRef on class $frameworkType. Methods: ${frameworkType.getAllMethods().toList}")
             case m => m
           }
         })
