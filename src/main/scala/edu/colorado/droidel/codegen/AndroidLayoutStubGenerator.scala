@@ -118,19 +118,32 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
                                 specializedGetterMap : Map[LayoutId,MethodReference], 
                                 stubClassName : String, appBinPath : String) : (StubMap, List[File]) = {
     val inhabitor = new TypeInhabitor  
-      
+    
+    val viewClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(VIEW_TYPE)))
+    assert(viewClass != null, "Couldn't find View class in class hierarchy. Something is very wrong")
+    val fragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(FRAGMENT_TYPE)))
+    val appFragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE)))
+    
+    def isSubtypeOfViewOrFragment(elem : LayoutElement, elemClass : IClass) : Boolean = elem match {
+      case elem : LayoutView => cha.isAssignableFrom(viewClass, elemClass)
+      case elem : LayoutFragment => 
+        (fragmentClass != null && cha.isAssignableFrom(fragmentClass, elemClass)) ||
+        (appFragmentClass != null && cha.isAssignableFrom(appFragmentClass, elemClass))
+    } 
+    
     def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
       elems.foldLeft (List.empty[InhabitedLayoutElement], allocs) ((pair, v) => {       
         val elemType = getTypeForAndroidClassName(v.typ)
         cha.lookupClass(elemType) match {
           case null => pair
-          case clazz if ClassUtil.isInnerOrEnum(clazz) => pair
+          case clazz if ClassUtil.isInnerOrEnum(clazz) =>
+            println(s"Warning: not including ${v.typ} in stubs because it is an inner class or Enum that cannot be allocated outside of its class or package")
+            pair
+          case clazz if !isSubtypeOfViewOrFragment(v, clazz) => 
+            println(s"Warning: not including ${v.typ} in stubs because it is not a subtype of View/Fragment according to the class hierarchy (missing library code suspected)")
+            pair    
           case _ => 
-            val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
-            /*val id = v match {
-              case v : LayoutView => v.id 
-              case _ => None
-            }*/
+            val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)            
             (new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType) :: pair._1, allocs)
         }        
       })
