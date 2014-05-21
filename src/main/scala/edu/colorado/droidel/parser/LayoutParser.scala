@@ -179,9 +179,14 @@ class LayoutParser extends AndroidParser {
             val name = getAndroidPrefixedAttrOption(node, "name") match {
               case Some(name) => name
               case None =>
-                // use the string identifier of id (if there is one) -- it's often descriptive of what the element is and vastly
-                // increases the readability of the stubs
-                idStr
+                // try getting the class instead of the name
+                getAndroidPrefixedAttrOption(node, "class") match {
+                  case Some(name) => name
+                  case None =>
+                    // use the string identifier of id (if there is one) -- it's often descriptive of what the element is and vastly
+                    // increases the readability of the stubs
+                    idStr
+                }               
             }
             
             // variant of name that is a valid Java identifier
