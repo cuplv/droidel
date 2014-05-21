@@ -106,7 +106,12 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     cha.find(c => packageExpandedNames.contains(c.getName().toString())) match {
       case Some(c) => c.getReference()
       case None =>
-        sys.error(s"Couldn't find class name corresponding to any of $packageExpandedNames in class hierarchy")
+        // easy lookup failed. just look for a name match
+        cha.find(c => c.getName().toString().contains(name)) match {
+          case Some(c) => c.getReference()
+          case None =>
+            sys.error(s"Couldn't find class name corresponding to any of $packageExpandedNames in class hierarchy")
+        }                
     }     
   }
   

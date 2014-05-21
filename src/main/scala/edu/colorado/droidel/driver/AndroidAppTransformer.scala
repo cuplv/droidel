@@ -119,7 +119,20 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))   
   }  
 
-  val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))  
+  val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))    
+  
+  def getApplicationCodeDir(applicationCodePath : String) : Option[File] = new File(applicationCodePath) match {    
+    case f if f.exists() && f.isDirectory() => Some(f)
+    case f =>
+      // couldn't find the application code dir where it was supposed to be. this happens when the package specified in
+      // the manifest doesn't correspond to an actual directory structure. try moving back up to the
+      // parent directory and seeing if that directory structure exists
+      val parent = f.getParent()
+      if (parent != null) {
+        println(s"Warning: couldn't find application code path specified in manifest, trying $parent")
+        getApplicationCodeDir(f.getParent()) 
+      } else None
+  }
   
   // load Android libraries/our stubs in addition to the normal analysis scope loading 
   def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
@@ -128,9 +141,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
-    val applicationCodeDir = new File(applicationCodePath)
-    assert(applicationCodeDir.exists() && applicationCodeDir.isDirectory(), 
-      s"Directory ${applicationCodeDir.getAbsolutePath()} should contain application bytecodes, but does not exist (or is not a directory)")
+    val applicationCodeDir = getApplicationCodeDir(applicationCodePath) match {
+      case Some(applicationCodeDir) => applicationCodeDir
+      case None => 
+        sys.error(s"Path $applicationCodePath should contain application bytecodes, but does not exist (or is not a directory)")
+    } 
       
     val analysisScope = AnalysisScope.createJavaAnalysisScope()
 
