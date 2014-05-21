@@ -204,7 +204,9 @@ class TypeInhabitor(reuseInhabitants : Boolean = true) {
     case TypeReference.Float => "0f"
     case TypeReference.Long => "0l"
     case TypeReference.Double => "0.0"
-    //case TypeReference.Char => "\u0000" 
+    case TypeReference.Char => "\u0000" 
+    case TypeReference.Byte => "0"
+    case TypeReference.Short => "0"    
     case t => sys.error(s"Getting default assignment for type $t")
   }
   
