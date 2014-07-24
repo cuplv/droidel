@@ -23,7 +23,7 @@ Utilities for performing many permission-sensitive operations (e.g., `Notificati
 
 Installation
 ------------
-Installing Droidel requires sbt, maven, and ant. Droidel depends on [WALA](https://github.com/wala/WALA) and it also uses the [JPhantom](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf) [tool](https://github.com/gbalats/jphantom). To install Droidel, run the following from Droidel's top-level directory:
+Installing Droidel requires Scala 2.10.2 or later, sbt, maven, and ant. Droidel depends on [WALA](https://github.com/wala/WALA) and it also uses the [JPhantom](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf) [tool](https://github.com/gbalats/jphantom). To install Droidel, run the following from Droidel's top-level directory:
 
 (1) Download WALA and install it to your local Maven repository (it doesn't matter where the WALA project lives w.r.t Droidel):
 
