@@ -1,34 +1,18 @@
 package edu.colorado.droidel.codegen
 
-import scala.collection.JavaConversions._
-import com.ibm.wala.types.FieldReference
-import com.ibm.wala.classLoader.IClass
-import java.io.StringWriter
-import com.squareup.javawriter.JavaWriter
+import java.io.{File, FileWriter, StringWriter}
 import java.util.EnumSet
-import javax.lang.model.element.Modifier.FINAL
-import javax.lang.model.element.Modifier.PRIVATE
-import javax.lang.model.element.Modifier.PUBLIC
-import javax.lang.model.element.Modifier.STATIC
-import edu.colorado.droidel.util.ClassUtil
-import com.ibm.wala.types.TypeReference
+import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
+
+import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.classLoader.IMethod
-import edu.colorado.droidel.constants.AndroidConstants
-import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.droidel.util.Util
-import edu.colorado.droidel.util.CHAUtil
-import edu.colorado.droidel.util.JavaUtil
-import edu.colorado.droidel.util.Types._
-import java.io.FileWriter
-import java.io.File
-import com.ibm.wala.classLoader.IField
-import AndroidHarnessGenerator._
-import com.ibm.wala.types.ClassLoaderReference
-import com.ibm.wala.types.MethodReference
-import edu.colorado.droidel.util.Timer
-import com.ibm.wala.types.TypeName
-import com.ibm.wala.util.strings.Atom
+import com.ibm.wala.types.{ClassLoaderReference, FieldReference, TypeReference}
+import com.squareup.javawriter.JavaWriter
+import edu.colorado.droidel.codegen.AndroidHarnessGenerator._
+import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
+import edu.colorado.droidel.util.{CHAUtil, ClassUtil, JavaUtil, Timer}
+
+import scala.collection.JavaConversions._
 
 object AndroidHarnessGenerator {
   private val DEBUG = false
@@ -53,11 +37,9 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(className)))
       
     val layoutStubClass = s"${DroidelConstants.STUB_DIR}.${DroidelConstants.LAYOUT_STUB_CLASS}"
-    //val stubClass = stubPaths.head.getName().replace(File.separatorChar, '.')
 
     val viewClass = makeClass(AndroidConstants.VIEW_TYPE)
-    val fragmentClass = makeClass(AndroidConstants.FRAGMENT_TYPE)
-    
+
     val (alloc, freshVar) = inhabitor.mkAssign(viewClass, s"$layoutStubClass.findViewById(-1)")
     initAllocs = alloc :: initAllocs
     inhabitantCache.put(viewClass, freshVar)

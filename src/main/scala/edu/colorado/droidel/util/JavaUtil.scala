@@ -71,7 +71,7 @@ object JavaUtil {
   }    
   
   private def writeEntry(e : JarEntry, entryStream : InputStream, jarStream : JarOutputStream) : Unit = {
-    var buf = new Array[Byte](1024)
+    val buf = new Array[Byte](1024)
     jarStream.putNextEntry(e)
     Stream.continually(entryStream.read(buf)).takeWhile(_ != -1).foreach(jarStream.write(buf, 0, _))
     jarStream.closeEntry()
@@ -94,7 +94,7 @@ object JavaUtil {
     jars.foldLeft (Set.empty[String]) ((added, jar) => {
       jar.entries().foldLeft (added) ((added, e) => {
         val newAdded = added + e.getName()
-        if (newAdded.size != added.size) writeEntry(e, jar.getInputStream(e), jarStream)
+        if (newAdded.size != added.size) writeEntry(new JarEntry(e.getName), jar.getInputStream(e), jarStream)
         else if (duplicateWarning && !e.isDirectory()) println(s"Duplicate entry $e; not adding")
         newAdded
       })
@@ -110,7 +110,7 @@ object JavaUtil {
   // entries always occur before their children. probably better to just use the command line jar utility
   def extractJar(jarFile : File, outPath : String) : Unit = {
     def copyStream(istream : InputStream, ostream : OutputStream) : Unit = {
-      var bytes =  new Array[Byte](1024)
+      val bytes =  new Array[Byte](1024)
       var len = -1
       while({ len = istream.read(bytes, 0, 1024); len != -1 })
         ostream.write(bytes, 0, len)
