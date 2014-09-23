@@ -94,17 +94,17 @@ class TypeInhabitor(reuseInhabitants : Boolean = true) {
       val (inhabitant, newAllocs) = if (!currentlyInhabiting.add(clazz)) (NULL, allocs) else clazz match {
         case clazz if !clazz.isPublic() =>
           if (DEBUG) printInhabitFailMsg(clazz)
-          (NULL, allocs) // TODO: return None and backtrack here instead?
+          (inhabitCast(NULL, clazz), allocs) // TODO: return None and backtrack here instead?
         case clazz if ClassUtil.isInnerOrEnum(clazz) => 
           // TODO: support inhabiting inner classes and enums
           if (DEBUG) printInhabitFailMsg(clazz)
-          (NULL, allocs) // TODO: return None and backtrack here instead?
+          (inhabitCast(NULL, clazz), allocs) // TODO: return None and backtrack here instead?
         case clazz if clazz.isInterface() || clazz.isAbstract() => 
           inhabitAbstractOrInterfaceType(clazz, cha, allocs) match {
             case (Some(inhabitant), allocs) => (inhabitant, allocs)
             case (None, _ ) => 
               printInhabitFailMsg(clazz)
-              (NULL, allocs)
+              (inhabitCast(NULL, clazz), allocs)
           } 
         case _ =>
           val typ = clazz.getReference()     
@@ -136,7 +136,7 @@ class TypeInhabitor(reuseInhabitants : Boolean = true) {
               )
               if (staticFactories.isEmpty) { // TODO: backtrack on failure
                 if (DEBUG) printInhabitFailMsg(clazz)
-                (NULL, allocs)
+                (inhabitCast(NULL, clazz), allocs)
               } else {
                 val easiestFactory = staticFactories.minBy(f => f.getNumberOfParameters())
                 inhabitFunctionCall(easiestFactory, None, cha, allocs)
@@ -194,8 +194,12 @@ class TypeInhabitor(reuseInhabitants : Boolean = true) {
         if (DEBUG) printInhabitFailMsg(interface)
         // can't find anything concrete. have to return null or else we won't be able to generate a harness that compiles
         // TODO: return None and backtrack here?
-        (Some(NULL), allocs)
-    } 
+        (Some(inhabitCast(NULL, interface)), allocs)
+    }
+
+  // create a cast expression (@param typ) @param exp
+  def inhabitCast(exp : Expression, typ : IClass) : Expression =
+    s"(${ClassUtil.deWalaifyClassName(typ)}) $exp"
   
   // inhabit a primitive type with its default value
   private def inhabitPrimitiveType(t : TypeReference) : Expression = t match {
