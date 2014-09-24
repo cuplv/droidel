@@ -157,7 +157,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     
     val layoutStubFilePath = List(binPath, DroidelConstants.STUB_DIR, s"${DroidelConstants.LAYOUT_STUB_CLASS}.class").mkString(File.separator)
    
-    val manifestUsedActivities = manifest.activities.foldLeft (Set.empty[String]) ((s, a) => 
+    val manifestUsedActivitiesAndApplications = manifest.entries.foldLeft (Set.empty[String]) ((s, a) => 
       s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
     
     // load application code using Application class loader and all library code using Primordial class loader
@@ -165,11 +165,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     val allFiles = Util.getAllFiles(new File(binPath)).filter(f => !f.isDirectory())
     allFiles.foreach(f => assert(!f.getName().endsWith(".jar"), 
                                  s"Not expecting JAR ${f.getAbsolutePath()} in app bin directory"))
-    allFiles.foreach(f => if (f.getName().endsWith(".class")) {   
+    allFiles.foreach(f => if (f.getName().endsWith(".class")) {
       // make sure code in the manifest-declared app package is loaded as application
       if (f.getAbsolutePath().contains(applicationCodePath) ||
           // if we have library code that is declared as an application Activity in the manifest, load in in the Application scope
-          manifestUsedActivities.contains(f.getAbsolutePath) ||
+          manifestUsedActivitiesAndApplications.contains(f.getAbsolutePath) ||
           // make sure the *layout* stubs are loaded as application. this is necessary because the layout stubs can allocate application-defined
           // types (such as application-defined Fragments). if we load these stubs as library, WALA won't respect these allocations
           // on the other hand, we want other stubs to be loaded as library because some (such as system service stubs) are used
@@ -422,10 +422,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     
     // make a map from framework class -> set of application classes implementing framework class)
     // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
-    // TODO: curate by reasoning about callback registration. only need to include registered classed
+    // TODO: curate by reasoning about callback registration. only need to include registered classes
     def makeFrameworkCreatedTypesMap() : Map[IClass,Set[IClass]] = 
-      AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft (Map.empty[IClass,Set[IClass]]) ((m, c) => 
-        cha.computeSubClasses(c.getReference()).filter(c => !ClassUtil.isLibrary(c)) match {
+      AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft (Map.empty[IClass,Set[IClass]]) ((m, c) => {
+        val subclasses = cha.computeSubClasses(c.getReference())
+        subclasses.filter(c => !ClassUtil.isLibrary(c)) match {
           case appSubclasses if appSubclasses.isEmpty => m
           case appSubclasses =>
             // we only handle public classes because we need to be able to instantiate them and call their callbakcs
@@ -433,13 +434,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
             // abstract classes cannot be registered for callbacks because they can't be instantiated
             appSubclasses.filter(c => c.isPublic() && !c.isAbstract() && !ClassUtil.isInnerOrEnum(c)) match {
               case concreteSubclasses if concreteSubclasses.isEmpty => m
-              case concreteSubclasses => m + (c -> concreteSubclasses.toSet)                
+              case concreteSubclasses =>
+                m + (c -> concreteSubclasses.toSet)                
             }
         }
-      )
+      })
    
     val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap
-                         
     // TODO: parse and check more than just Activity's. also, use the manifest to curate what we include above so we do
     // not include to much
     // sanity check our list of framework created types against the manifest
@@ -475,7 +476,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
           assert(!m.contains(appClass), s"Callback map already has entry for app class $appClass")
           m + (appClass ->  allCbs)
         })
-      })
+      })      
       
       // perform two kinds of instrumentations on the bytecode of the app:
       // (1) find all types allocated in the application and instrument the allocating method to extract the allocation via an instrumentation field

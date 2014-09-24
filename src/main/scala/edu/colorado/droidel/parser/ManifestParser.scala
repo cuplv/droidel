@@ -33,11 +33,14 @@ class ManifestParser extends AndroidParser {
     assert(apps.size == 1, s"Expecting only one application, but found ${apps.size}")
     val app = apps.head
     assert(isEnabled(app), "Handle disabled apps")
-    def parseActivityClassName(name : String) : String =
+    
+    def parseClassName(name : String) : String =
       // "." is shorthand for the package name (see http://developer.android.com/guide/topics/manifest/activity-element.html)
       if (name.startsWith(".")) packageName + name 
       else name
     
+    val applications = List(new ManifestApplication(packageName, parseClassName(getAndroidPrefixedAttrSingle(app, "name"))))
+      
     // parse enabled activities
     // TODO: parse other activity stuff? parsing configChanges seems important, at the very least
     val activities = (app \ "activity").foldLeft (List.empty[ManifestActivity]) ((l, a) => 
@@ -49,9 +52,10 @@ class ManifestParser extends AndroidParser {
         val actions = (intentFilters \ "action").map(n => getAndroidPrefixedAttrSingle(n, "name"))
         val categories = (intentFilters \ "category").map(n => getAndroidPrefixedAttrSingle(n, "name"))
         val isMain = actions.contains(MAIN_ACTION) && categories.contains(LAUNCHER_CATEGORY)        
-        new ManifestActivity(packageName, parseActivityClassName(getAndroidPrefixedAttrSingle(a, "name")), isMain) :: l
+        new ManifestActivity(packageName, parseClassName(getAndroidPrefixedAttrSingle(a, "name")), isMain) :: l
       }
-    )
+    )        
+    
     // check that there's only one main Activity
     if (DEBUG) {
       val numMainActs = activities.filter(act => act.isMain).size    
@@ -62,7 +66,7 @@ class ManifestParser extends AndroidParser {
     /*val receivers = (app \ "receiver")
     val services = (app \ "service")
     val providers = (app \ "provider")*/
-    new AndroidManifest(packageName, targetSdkVersion, activities)
+    new AndroidManifest(packageName, targetSdkVersion, activities, applications)
   }
 }
 
