@@ -39,7 +39,10 @@ class ManifestParser extends AndroidParser {
       if (name.startsWith(".")) packageName + name 
       else name
     
-    val applications = List(new ManifestApplication(packageName, parseClassName(getAndroidPrefixedAttrSingle(app, "name"))))
+    val applications = getAndroidPrefixedAttrOption(app, "name") match {
+      case Some(attr) => List(new ManifestApplication(packageName, parseClassName(attr)))
+      case None => Nil
+    }
       
     // parse enabled activities
     // TODO: parse other activity stuff? parsing configChanges seems important, at the very least
