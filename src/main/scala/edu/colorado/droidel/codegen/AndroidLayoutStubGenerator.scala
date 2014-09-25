@@ -1,39 +1,25 @@
 package edu.colorado.droidel.codegen
 
-import scala.collection.JavaConversions._
-import java.io.FileWriter
-import java.io.StringWriter
-import edu.colorado.droidel.util.JavaUtil
-import edu.colorado.droidel.util.ClassUtil
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.classLoader.IClass
-import java.io.File
-import com.squareup.javawriter.JavaWriter
+import java.io.{File, FileWriter, StringWriter}
 import java.util.EnumSet
-import com.ibm.wala.types.ClassLoaderReference
-import javax.lang.model.element.Modifier.FINAL
-import javax.lang.model.element.Modifier.PRIVATE
-import javax.lang.model.element.Modifier.PUBLIC
-import javax.lang.model.element.Modifier.STATIC
+import javax.lang.model.element.Modifier.{FINAL, PRIVATE, PUBLIC, STATIC}
+
+import com.ibm.wala.classLoader.IClass
+import com.ibm.wala.ipa.cha.IClassHierarchy
+import com.ibm.wala.shrikeBT.MethodEditor.Output
+import com.ibm.wala.shrikeBT.{IInvokeInstruction, InvokeInstruction, PopInstruction}
+import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SymbolTable}
+import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
+import com.squareup.javawriter.JavaWriter
+import edu.colorado.droidel.codegen.AndroidLayoutStubGenerator._
+import edu.colorado.droidel.constants.AndroidConstants
 import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
-import AndroidLayoutStubGenerator._
-import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.types.TypeReference
-import edu.colorado.droidel.parser.LayoutElement
-import edu.colorado.droidel.parser.LayoutView
-import edu.colorado.droidel.parser.LayoutFragment
-import edu.colorado.droidel.constants.DroidelConstants
+import edu.colorado.droidel.parser.{LayoutElement, LayoutFragment, LayoutView}
+import edu.colorado.droidel.util.{ClassUtil, JavaUtil}
 import edu.colorado.droidel.util.Types._
-import com.ibm.wala.shrikeBT.MethodEditor.Output
-import com.ibm.wala.shrikeBT.PopInstruction
-import com.ibm.wala.shrikeBT.InvokeInstruction
-import com.ibm.wala.shrikeBT.IInvokeInstruction
-import com.ibm.wala.ssa.SSAInvokeInstruction
-import com.ibm.wala.ssa.SymbolTable
-import edu.colorado.droidel.constants.AndroidConstants
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.ssa.IR
+
+import scala.collection.JavaConversions._
 
 
 object AndroidLayoutStubGenerator {
@@ -53,7 +39,6 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
   type Expression = String
   type Statement = String
   
-  /** @param appBinPath - path to app's binaries, needed to compile stubs */
   override def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) =
     if (SMUSH_VIEWS) {
       val (allViews, allFragments) = resourceMap.foldLeft (List.empty[LayoutView], List.empty[LayoutFragment]) ((pair, entry) => {
@@ -137,17 +122,26 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     } 
     
     def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
-      elems.foldLeft (List.empty[InhabitedLayoutElement], allocs) ((pair, v) => {       
+      elems.foldLeft (List.empty[InhabitedLayoutElement], allocs) ((pair, v) => {
+
+        def checkForInhabitationProblems(clazz : IClass) : Option[String] =
+          if (clazz == null)
+            Some("we could not resolve it in the class hierarchy")
+          else if (ClassUtil.isInnerOrEnum(clazz))
+            Some("it is an inner class or Enum that cannot be allocated outside of its class or package")
+          else if (!isSubtypeOfViewOrFragment(v, clazz))
+            Some("it is not a subtype of View/Fragment according to the class hierarchy (missing library code suspected)")
+          else if (clazz.isPrivate)
+            Some("it is a private class")
+          else None
+
         val elemType = getTypeForAndroidClassName(v.typ)
-        cha.lookupClass(elemType) match {
-          case null => pair
-          case clazz if ClassUtil.isInnerOrEnum(clazz) =>
-            println(s"Warning: not including ${v.typ} in stubs because it is an inner class or Enum that cannot be allocated outside of its class or package")
+        val clazz = cha.lookupClass(elemType)
+        checkForInhabitationProblems(clazz) match {
+          case Some(problem) =>
+            println(s"Warning: not including ${v.typ} in stubs because $problem")
             pair
-          case clazz if !isSubtypeOfViewOrFragment(v, clazz) => 
-            println(s"Warning: not including ${v.typ} in stubs because it is not a subtype of View/Fragment according to the class hierarchy (missing library code suspected)")
-            pair    
-          case _ => 
+          case None =>
             val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)            
             (new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType) :: pair._1, allocs)
         }        
