@@ -80,7 +80,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
 
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses = {
-    Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
+    //Pietro: this did not work on my Mac
+    //Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
+    Source.fromURL(new File(DroidelConstants.CALLBACK_LIST).toURL())
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))   
   }  

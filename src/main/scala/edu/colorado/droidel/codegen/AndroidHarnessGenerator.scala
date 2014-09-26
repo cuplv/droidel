@@ -3,7 +3,6 @@ package edu.colorado.droidel.codegen
 import java.io.{File, FileWriter, StringWriter}
 import java.util.EnumSet
 import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
-
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, TypeReference}
@@ -11,8 +10,8 @@ import com.squareup.javawriter.JavaWriter
 import edu.colorado.droidel.codegen.AndroidHarnessGenerator._
 import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
 import edu.colorado.droidel.util.{CHAUtil, ClassUtil, JavaUtil, Timer}
-
 import scala.collection.JavaConversions._
+import com.ibm.mobile.droidertemplate.WriterFactory
 
 object AndroidHarnessGenerator {
   private val DEBUG = false
@@ -149,45 +148,44 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     )   
     
     val strWriter = new StringWriter
-    val writer = new JavaWriter(strWriter)         
+    
+        val harnessWriter = WriterFactory.factory(strWriter);
          
-    writer.emitPackage(DroidelConstants.HARNESS_DIR)
-    writer.emitImports(s"${DroidelConstants.STUB_DIR}.*")
-      
-    writer.emitEmptyLine()
-    writer.beginType(DroidelConstants.HARNESS_CLASS, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
-    writer.emitEmptyLine()
+    harnessWriter.emitBegin();
+
     // emit static fields for each of our instrumentation variables
-    instrumentationVars.foreach(field => writer.emitField(ClassUtil.deWalaifyClassName(field.getFieldType()), 
+    instrumentationVars.foreach(field => harnessWriter.emitField(ClassUtil.deWalaifyClassName(field.getFieldType()), 
                                                           field.getName().toString(),
-                                                          EnumSet.of(PUBLIC, STATIC)))    
-    writer.emitEmptyLine()                                                          
-    writer.beginMethod("void", DroidelConstants.HARNESS_MAIN, EnumSet.of(PUBLIC, STATIC)) // begin main harness method    
-    // wrap everything in a try/catch block so the Java compiler doesn't complain
-    writer.beginControlFlow("try") // begin try    
+                                                          EnumSet.of(PUBLIC, STATIC)))   
+                                                          
+    harnessWriter.emitBeginHarness();
+    
+    harnessWriter.beginAllocationComponent;
+    
     // emit allocations. need to reverse because the list of allocations was populated by prepending the most recent allocation
     // (which may in turn depend on other allocations), so we want to go last to first
-    finalAllocStatements.reverse.foreach(alloc => writer.emitStatement(alloc))
+    finalAllocStatements.reverse.foreach(alloc => harnessWriter.emitAllocationComponent(alloc))
+    
+    harnessWriter.endAllocationComponent;
+    
+    harnessWriter.beginCallToComponent;
+    
     // emit lifecycle callbacks on framework-created types
-    frameworkCreatedCbCalls.foreach(invoke => writer.emitStatement(invoke))
+    frameworkCreatedCbCalls.foreach(invoke => harnessWriter.emitCallToComponent(invoke))
     // emit implemented interface callbacks on framework-created types
-    frameworkCreatedInterfaceCbCalls.foreach(invoke => writer.emitStatement(invoke))
+    frameworkCreatedInterfaceCbCalls.foreach(invoke => harnessWriter.emitCallToComponent(invoke))
     // emit instrumentation var callback invocations
-    instrumentationVarCbCalls.foreach(invoke => writer.emitStatement(invoke))
-    writer.endControlFlow() // end try
-    writer.beginControlFlow("catch (Exception e)") // begin catch
-    writer.endControlFlow() // end catch    
-    writer.endMethod() // end main harness method
-    writer.endType() // end class    
+    instrumentationVarCbCalls.foreach(invoke => harnessWriter.emitCallToComponent(invoke))
+    
+    harnessWriter.endCallToComponent;
+    
+    harnessWriter.emitEndHarness();
+    harnessWriter.emitEnd();
+    
     
     val harnessPath = s"${harnessDir.getAbsolutePath()}/${DroidelConstants.HARNESS_CLASS}"
-    val fileWriter = new FileWriter(s"${harnessPath}.java")
-    if (DEBUG) println("HARNESS: " + strWriter.toString())
-    fileWriter.write(strWriter.toString())    
-    // cleanup
-    strWriter.close()
-    writer.close()    
-    fileWriter.close()
+
+    harnessWriter.write(harnessPath, DEBUG);
     
     val timer = new Timer
     timer.start

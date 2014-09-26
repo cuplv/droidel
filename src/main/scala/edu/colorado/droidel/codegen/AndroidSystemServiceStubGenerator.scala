@@ -113,10 +113,15 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     // emit stub for Context.getSystemService(String)
     val paramName = "name"
     writer.beginMethod("Object", GET_SYSTEM_SERVICE, EnumSet.of(PUBLIC, STATIC), "String", paramName)
-    writer.beginControlFlow(s"switch ($paramName)") // begin switch
+    /*writer.beginControlFlow(s"switch ($paramName)") // begin switch
     inhabitantMap.keys.foreach(key => writer.emitStatement("case \"" + key + "\": return " + key))
     writer.emitStatement("default: return null")
-    writer.endControlFlow() // end switch
+    writer.endControlFlow() // end switch*/
+    
+    //To avoid switch statements on strings not compatible with Java 6
+    inhabitantMap.keys.foreach(key => writer.emitStatement("if("+paramName+".equals(\"" + key + "\")) return " + key))
+    writer.emitStatement("return null")
+    
     writer.endMethod()
     writer.endType() // end class
     
