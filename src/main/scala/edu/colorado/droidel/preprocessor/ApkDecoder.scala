@@ -30,7 +30,7 @@ class ApkDecoder(apkPath : String) {
     // TODO: app support for using Dare instead    
     try {
       println("Running dex2jar")
-      com.googlecode.dex2jar.v3.Main.doFile(apk)
+      //com.googlecode.dex2jar.v3.Main.doFile(apk)
     } catch {
       case e : Throwable =>
         println(s"Error running dex2jar: $e. Exiting")
