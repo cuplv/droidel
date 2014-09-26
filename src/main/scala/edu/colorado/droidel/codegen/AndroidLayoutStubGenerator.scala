@@ -52,6 +52,7 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
             val oldList = pair._2
             // ditto with unsound dropping for Fragment's
             if (oldList.exists(v => v.id == e.id)) (pair._1, oldList) else (pair._1, e :: oldList)
+          case _ => pair
         })
       })
       
@@ -119,6 +120,7 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       case elem : LayoutFragment => 
         (fragmentClass != null && cha.isAssignableFrom(fragmentClass, elemClass)) ||
         (appFragmentClass != null && cha.isAssignableFrom(appFragmentClass, elemClass))
+      case _ => false
     } 
     
     def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
