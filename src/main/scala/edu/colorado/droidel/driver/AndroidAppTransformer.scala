@@ -6,46 +6,24 @@ package edu.colorado.droidel.driver
 //import java.nio.file.StandardCopyOption
 import java.io.File
 import java.util.jar.JarFile
+
+import com.ibm.wala.classLoader.{IClass, IMethod}
+import com.ibm.wala.ipa.callgraph.AnalysisScope
+import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
+import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
+import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
+import edu.colorado.droidel.codegen.{AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator}
+import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle, DroidelConstants}
+import edu.colorado.droidel.driver.AndroidAppTransformer._
+import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
+import edu.colorado.droidel.parser._
+import edu.colorado.droidel.preprocessor.CHAComplementer
+import edu.colorado.droidel.util.Types._
+import edu.colorado.droidel.util.{CHAUtil, ClassUtil, IRUtil, JavaUtil, Timer, Util}
+
 import scala.collection.JavaConversions._
 import scala.io.Source
-import com.ibm.wala.classLoader.IClass
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.ipa.callgraph.AnalysisScope
-import com.ibm.wala.ipa.cha.ClassHierarchy
-import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.ssa.SSAInvokeInstruction
-import com.ibm.wala.types.ClassLoaderReference
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.types.TypeReference
-import AndroidAppTransformer._
-import edu.colorado.droidel.constants.AndroidConstants
-import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.droidel.constants.AndroidLifecycle
-import edu.colorado.droidel.preprocessor.CHAComplementer
-import edu.colorado.droidel.parser.LayoutParser
-import edu.colorado.droidel.parser.ManifestParser
-import edu.colorado.droidel.parser.LayoutElement
-import edu.colorado.droidel.parser.LayoutView
-import edu.colorado.droidel.parser.LayoutFragment
-import edu.colorado.droidel.parser.AndroidManifest
-import edu.colorado.droidel.codegen.AndroidHarnessGenerator
-import edu.colorado.droidel.codegen.AndroidStubGenerator
-import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import scala.sys.process._
-import edu.colorado.droidel.util.CHAUtil
-import edu.colorado.droidel.util.ClassUtil
-import edu.colorado.droidel.util.IRUtil
-import edu.colorado.droidel.util.JavaUtil
-import edu.colorado.droidel.util.Timer
-import edu.colorado.droidel.util.Util
-import com.ibm.wala.types.FieldReference
-import com.ibm.wala.ssa.SSANewInstruction
-import com.ibm.wala.ssa.SymbolTable
-import edu.colorado.droidel.preprocessor.ApkDecoder
-import edu.colorado.droidel.codegen.AndroidSystemServiceStubGenerator
-import edu.colorado.droidel.util.Types._
-import edu.colorado.droidel.codegen.AndroidLayoutStubGenerator
-import com.ibm.wala.ssa.IR
 
 object AndroidAppTransformer {
   private val DEBUG = false
@@ -99,19 +77,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       }
     } else unprocessedBinPath
   }
-  
-  private val topLevelAppDir = {
-    val f = new File(appPath)
-    val parentPath = f.getParentFile() match {
-      case null => ""
-      case parentFile => parentFile.getAbsolutePath()
-    }
-    f.getAbsolutePath().replace(parentPath, "") match {
-      case str if str.startsWith(File.separator) => str.substring(1)
-      case str => str
-    }
-  }
-  
+
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses = {
     Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
@@ -141,11 +107,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
-    val applicationCodeDir = getApplicationCodeDir(applicationCodePath) match {
-      case Some(applicationCodeDir) => applicationCodeDir
-      case None => 
-        sys.error(s"Path $applicationCodePath should contain application bytecodes, but does not exist (or is not a directory)")
-    }    
     
     // TODO: make this less slow
     def isInApplicationCodePath(filePath : String) : Boolean = {
@@ -261,7 +222,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       }
     
     layoutMap.foldLeft (Map.empty[IClass,Set[IMethod]]) ((m, entry) => entry._2.foldLeft (m) ((m, v) => v match {
-      case v : LayoutView => 
+      case v : LayoutView =>
         v.onClick match {
           case Some(onClick) =>
             val callbackClass = entry._1
@@ -269,7 +230,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
             // look up its parent class, create a MethodReference, and add it to our set of manifest-declared entrypoints
             getEventHandlerMethod(onClick, callbackClass) match {
               case Some(callback) =>
-                if (DEBUG) println("Adding manifest-declared entrypoint entrypoint")
+                if (DEBUG) println(s"Adding manifest-declared entrypoint $callback")
                 Util.updateSMap(m, callbackClass, callback)
               case None => m
             }
@@ -282,6 +243,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
         // TODO: add Fragment lifecycle methods here? or support Fragment as a top-level lifecycle type like Activity's?
         //sys.error("unsupported: fragments")
         m
+      case v : LayoutInclude => m // happens when an include goes unresolved
     }))
   }
   

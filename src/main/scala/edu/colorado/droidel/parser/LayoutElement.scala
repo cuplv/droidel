@@ -15,9 +15,9 @@ abstract class LayoutElement(val typ : String, val declFile : String, val name :
 
 
 // abstraction of Android View class and its subclasses
-class LayoutView(typ : String, declFile : String, name : String, id : Option[Int], 
+class LayoutView(typ : String, declFile : String, name : String, id : Option[Int],
                  val text : Option[String], val onClick : Option[String]) extends LayoutElement(typ, declFile, name, id){
-  override def toString : String = "{" + typ + " " + name + opt2str(id) + opt2str(text) + opt2str(onClick) + "}"
+  override def toString : String = "{" + typ + " " + name + opt2str(id) + opt2str(text) + opt2str(onClick) + " " + declFile + "}"
   override def hashCode : Int = Util.makeHash(List(typ, declFile, id, text, onClick))
   override def equals(other : Any) : Boolean = other match {
     // purposely not including name because we sometimes generate that manually
@@ -28,3 +28,8 @@ class LayoutView(typ : String, declFile : String, name : String, id : Option[Int
 
 // abstraction of Android Fragment class and its subclasses
 class LayoutFragment(typ : String, declFile : String, name : String, id : Option[Int]) extends LayoutElement(typ, declFile, name, id) {}
+
+class LayoutInclude(declFile : String, id : Option[Int]) extends LayoutElement("", declFile, "", id) {
+  override def toString : String = s"include $declFile"
+
+}

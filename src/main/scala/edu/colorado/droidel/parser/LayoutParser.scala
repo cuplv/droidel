@@ -1,30 +1,14 @@
 package edu.colorado.droidel.parser
 
 import java.io.File
-import java.io.FileWriter
-import java.io.StringWriter
-import java.net.URL
 import java.net.URLClassLoader
-import java.util.EnumSet
-import scala.collection.JavaConversions._
-import scala.xml.Elem
-import scala.xml.Node
-import scala.xml.NodeSeq
-import scala.xml.XML
-import com.ibm.wala.types.MethodReference
-import com.squareup.javawriter.JavaWriter
-import edu.colorado.droidel.util.JavaUtil
-import edu.colorado.droidel.util.Util
-import javax.lang.model.element.Modifier.FINAL
-import javax.lang.model.element.Modifier.PRIVATE
-import javax.lang.model.element.Modifier.PUBLIC
-import javax.lang.model.element.Modifier.STATIC
-import com.ibm.wala.types.ClassLoaderReference
-import edu.colorado.droidel.util.ClassUtil
-import edu.colorado.droidel.constants.AndroidConstants._
-import com.ibm.wala.classLoader.IClass
-import LayoutParser._
 import javax.lang.model.SourceVersion
+
+import com.ibm.wala.classLoader.IClass
+import edu.colorado.droidel.parser.LayoutParser._
+import edu.colorado.droidel.util.Util
+
+import scala.xml.{Node, XML}
 
 
 object LayoutParser {
@@ -122,6 +106,8 @@ class LayoutParser extends AndroidParser {
   /** @return (manifest representation, resources map) */
   def parseAndroidLayout(appDir : File, binDir : File, manifest : AndroidManifest, layoutIdClassMap : Map[Int,Set[IClass]]) : Map[IClass,Set[LayoutElement]] = {
     require(appDir.isDirectory())
+
+    val NO_CLASS : IClass = null
     
     if (layoutIdClassMap.isEmpty) {
       println("Warning: layoutIdClassMap is empty")
@@ -136,7 +122,8 @@ class LayoutParser extends AndroidParser {
       println(s"Warning: Couldn't find layout directory ${layoutDir.getAbsolutePath}. This is possible, but not expected")
       return Map.empty[IClass,Set[LayoutElement]]
     }
-        
+
+    def stripLayoutPrefix(str : String) : String = str.replace("@layout/", "")
     def stripIdPrefix(str : String) : String = str.replace("@+id/", "").replace("@id/", "").replace("@*", "")
     def getString(str : String, strMap : Map[String,String]) : String = {      
       val idTag = "@string/"
@@ -152,9 +139,9 @@ class LayoutParser extends AndroidParser {
 
       // TODO: support these. see http://www.curious-creature.org/2009/02/25/android-layout-trick-2-include-to-reuse/
       def isUnsupportedConstruct(label : String) : Boolean = {
-        val unsupported = List("requestFocus", "merge", "include")
+        val unsupported = List("requestFocus", "merge")
         val res = unsupported.contains(label)
-        if (DEBUG && res) println(s"Warning: layout file $declFile uses unsupported construct $label")
+        if (res) println(s"Warning: layout file $declFile uses unsupported construct $label")
         res
       }
       
@@ -181,7 +168,7 @@ class LayoutParser extends AndroidParser {
               case None =>
                 // try getting the class instead of the name
                 getAndroidPrefixedAttrOption(node, "class") match {
-                  case Some(name) => name
+                  case Some(name) => stripLayoutPrefix(name)
                   case None =>
                     // use the string identifier of id (if there is one) -- it's often descriptive of what the element is and vastly
                     // increases the readability of the stubs
@@ -191,26 +178,41 @@ class LayoutParser extends AndroidParser {
             
             // variant of name that is a valid Java identifier
             val checkedName = if (SourceVersion.isName(idStr)) idStr else mkFakeName
-            
-            val newElem = if (node.label == "fragment") {
-              assert(!isFake(name), s"Expected fragment name, but instead got fake name. Node is $node")
-              val typ = node.attribute("class") match {
-                case Some(typ) => typ.head.text
-                case None =>
-                  // sanity check--make sure the name looks like it could be a type
-                  assert(!name.contains(':'), s"$name in $declFile does not look like a Fragment type")
-                  name
-              }              
-              new LayoutFragment(typ, declFile, checkedName, id)            
-            } else {
-              val text = getAndroidPrefixedAttrOption(node, "text") match {
-                case Some(text) => Some(getString(text, strMap))
-                case None => None
+
+            try {
+              val newElem = if (node.label == "fragment") {
+                assert(!isFake(name), s"Expected fragment name, but instead got fake name. Node is $node")
+                val typ = node.attribute("class") match {
+                  case Some(typ) => typ.head.text
+                  case None =>
+                    // sanity check--make sure the name looks like it could be a type
+                    assert(!name.contains(':'), s"$name in $declFile does not look like a Fragment type")
+                    name
+                }
+                new LayoutFragment(typ, declFile, checkedName, id)
+              } else if (node.label == "include") {
+                val layoutFile = node.attribute("layout") match {
+                  case Some(layout) => s"${stripLayoutPrefix(layout.head.text)}.xml"
+                  case None => ""
+                }
+                new LayoutInclude(layoutFile, id)
+              } else {
+                val text = getAndroidPrefixedAttrOption(node, "text") match {
+                  case Some(text) => Some(getString(text, strMap))
+                  case None => None
+                }
+                val onClick = getAndroidPrefixedAttrOption(node, "onClick")
+                new LayoutView(node.label, declFile, checkedName, id, text, onClick)
               }
-              val onClick = getAndroidPrefixedAttrOption(node, "onClick")
-              new LayoutView(node.label, declFile, checkedName, id, text, onClick)
+              layoutElems + newElem
+            } catch {
+              case e : Throwable =>
+                if (DEBUG) {
+                  println(s"Error while processing $node")
+                  throw e
+                }
+                layoutElems
             }
-            layoutElems + newElem
           }
           parseLayoutElementsRec(node.descendant ++ worklist, newViews)
         case Nil => layoutElems
@@ -221,19 +223,25 @@ class LayoutParser extends AndroidParser {
       
       val declFileName = declFile.stripSuffix(".xml")
       if (layoutMap.contains(declFileName)) {
-        val layoutId = layoutMap(declFileName)                      
+        val layoutId = layoutMap(declFileName)
         
         // absence of a mapping for key layoutId here just means that we found a declared layout,
         // but we did not find any classes that use that layout. this is a common situation,
         // especially when apps use libraries that declare many layouts
-        val layoutClasses = layoutIdClassMap.getOrElse(layoutId, Set.empty[IClass])        
+        val layoutClasses = layoutIdClassMap.getOrElse(layoutId, Set.empty[IClass])
         // for some classes, we may not have been able to resolve what layout they are associated with
         // find these classes and conservatively associate them with this particular layout
         val unknownLayoutClasses = if (layoutIdClassMap.contains(UNKNOWN_LAYOUT_ID)) {
           layoutIdClassMap(UNKNOWN_LAYOUT_ID)  
         } else Set.empty[IClass]
-        // associate known and unknown classes with this layout
-        (layoutClasses ++ unknownLayoutClasses).foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))
+
+        val allClasses = layoutClasses ++ unknownLayoutClasses
+        if (allClasses.isEmpty)
+          // hack -- map the layout elems to know class so we can resolve their usage with <include>'s later
+          map + (NO_CLASS -> layoutElems)
+        else
+          // associate known and unknown classes with this layout
+          allClasses.foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))
       } else {
         if (DEBUG) println(s"Warning: couldn't find ID for $declFile")
         map
@@ -244,8 +252,27 @@ class LayoutParser extends AndroidParser {
       println("Warning: resources map empty")
       if (DEBUG) sys.error("Empty resources map is nonsensical. Exiting")
     } 
-    
-    resourcesMap
+
+    def resolveIncludes(resourcesMap : Map[IClass,Set[LayoutElement]]) = {
+      resourcesMap.map(pair => {
+        val (clazz, resources) = pair
+        val newResources = resources.map(resource => resource match {
+          case include : LayoutInclude =>
+            // TODO: I don't think this is quite right; we want the top-level XML layout component declared in the file
+            // with the name declFile. Currently, componenets don't know if they are nested or top-level
+            resourcesMap.values.flatten.find(e => e != include && e.declFile == include.declFile) match {
+              case Some(resolvedInclude) => resolvedInclude
+              case None =>
+                println(s"Warning: couldn't resolve include $include")
+                include
+            }
+          case e => e
+        })
+        (clazz, newResources)
+      })
+    }
+
+    resolveIncludes(resourcesMap) - NO_CLASS
   }
   
   var tmpNameCounter = 0

@@ -38,7 +38,7 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
   type VarName = String
   type Expression = String
   type Statement = String
-  
+
   override def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) =
     if (SMUSH_VIEWS) {
       val (allViews, allFragments) = resourceMap.foldLeft (List.empty[LayoutView], List.empty[LayoutFragment]) ((pair, entry) => {
