@@ -25,7 +25,7 @@ import scala.collection.JavaConversions._
 import scala.io.Source
 import scala.sys.process._
 
-object AndroidAppxTransformer {
+object AndroidAppTransformer {
   private val DEBUG = false
 } 
 
