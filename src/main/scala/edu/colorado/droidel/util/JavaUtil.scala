@@ -21,6 +21,8 @@ object JavaUtil {
    *  @param classes - list of class names to compile *without* .java extension 
    *  @return true if compilation completed successfully, false otherwise */
   def compile(classes : Iterable[String], options : Iterable[String], printFailureDiagnostics : Boolean = true) : Boolean = {
+    //Compatible with Java 6 
+    val newOptions = options.toList ::: ("-source" :: "1.6" :: "-target" :: "1.6" :: Nil);
     require(classes.forall(c => !c.endsWith(".java")))
     val compiler = ToolProvider.getSystemJavaCompiler()
     assert(compiler != null, 
@@ -28,7 +30,7 @@ object JavaUtil {
     val diagnostics = new DiagnosticCollector[JavaFileObject]
     val fileMgr = compiler.getStandardFileManager(diagnostics, null, null)
     val compilationUnits = fileMgr.getJavaFileObjectsFromStrings(asJavaCollection(classes.map(_ + ".java")))    
-    val task = compiler.getTask(null, fileMgr, diagnostics, asJavaIterable(options), null, compilationUnits)
+    val task = compiler.getTask(null, fileMgr, diagnostics, asJavaIterable(newOptions), null, compilationUnits)
     val res : Boolean = task.call()
     if (printFailureDiagnostics && !res) diagnostics.getDiagnostics().foreach(d => println(d)) 
     res
