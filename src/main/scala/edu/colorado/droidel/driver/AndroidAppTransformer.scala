@@ -13,7 +13,7 @@ import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen.{AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator}
-import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle, DroidelConstants}
+import edu.colorado.droidel.constants.{AndroidLifecycle, DroidelConstants}
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import edu.colorado.droidel.parser._
@@ -249,37 +249,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     }))
   }
   
-  private def makeSpecializedLayoutTypeCreationMap(stubPaths : Iterable[String]) : Map[TypeReference,MethodReference] = {
-    // this is currently hardcoded based on what our stubs currently know what to do: generate specialized findViewById and findFragmentById methods
-    val walaViewTypeName = ClassUtil.walaifyClassName(AndroidConstants.VIEW_TYPE)
-    val walaFragmentTypeName = ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE)
-    val viewTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, walaViewTypeName)
-    val fragmentTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, walaFragmentTypeName)
-    // TODO: this won't work for multiple files!
-    // tell the entrypoint creator to use findViewById() and findFragmentById() to create View's/Fragment's'
-    
-    stubPaths.foldLeft (Map.empty[TypeReference,MethodReference]) ((m, stubPath) => {
-      val viewStubMethod = MethodReference.findOrCreate(ClassLoaderReference.Primordial, 
-          ClassUtil.walaifyClassName(stubPath), AndroidConstants.FIND_VIEW_BY_ID, s"(I)$walaViewTypeName")    
-      val fragmentStubMethod = MethodReference.findOrCreate(ClassLoaderReference.Primordial, 
-          ClassUtil.walaifyClassName(stubPath),  AndroidConstants.FIND_FRAGMENT_BY_ID, s"(I)$walaViewTypeName")
-      m + (viewTypeRef -> viewStubMethod, fragmentTypeRef -> fragmentStubMethod)
-    })
-  }
-  
   private def instrumentForApplicationAllocatedCallbackTypes(cha : IClassHierarchy, appCreatedCbMap : Map[IClass,Set[IMethod]], 
       patchMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]]) : (File, Iterable[FieldReference]) = {
     var dummyID = 0
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
     val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
-    
-    /*val specializedMethodNames = Set(AndroidConstants.FIND_VIEW_BY_ID,  AndroidConstants.FIND_FRAGMENT_BY_ID)
-    def isSpecializedMethod(m : MethodReference) : Boolean = specializedMethodNames.contains(m.getName().toString())
-    def isSpecializedId(id : LayoutId) : Boolean = specializedLayoutGettersMap.contains(id)
-    def isFirstParamSpecializedId(i : SSAInvokeInstruction, tbl : SymbolTable) : Boolean =
-      i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))*/   
-    
+
     def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
          
     // look for application-created callback types by iterating through the class hierarchy instead of the methods in the callgraph.
@@ -298,8 +274,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
                                                    Map.empty[IMethod,Iterable[(Int, Patch)]]) ((trio, m) => {
           val ir = IRUtil.makeIR(m)
           if (ir != null) {
-            val tbl = ir.getSymbolTable()
-            val (allocs, calls) = ir.getInstructions().zipWithIndex.foldLeft (List.empty[(Int, List[IClass])],List.empty[(Int, Patch)]) ((l, pair) => 
+            val (allocs, calls) = ir.getInstructions().zipWithIndex.foldLeft (List.empty[(Int, List[IClass])],List.empty[(Int, Patch)]) ((l, pair) =>
               pair._1 match {
                 case i : SSANewInstruction if !ClassUtil.isLibrary(m)  =>
                   cha.lookupClass(i.getConcreteType()) match {

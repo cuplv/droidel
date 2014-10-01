@@ -43,7 +43,7 @@ Installing Droidel requires Scala 2.10.2 or later, sbt, maven, and ant. Droidel 
 
 Android JARs
 ------------
-In order to run Droidel, you need a JAR file containing the bytecodes for the Android framework. Good sources for Android JARs are [GrepCode](http://grepcode.com/project/repository.grepcode.com/java/ext/com.google.android/android/) and Sable's [android-platforms](https://github.com/Sable/android-platforms) GitHub project. Do not use the JARs packaged with the Android SDK. These JARs only contain type-correct stubs for applications to compile against; they are not suitable for static analysis of the Android framework.
+In order to run Droidel, you need a JAR file containing the bytecodes for the Android framework. A good sources for Android JARs is [GrepCode](http://grepcode.com/project/repository.grepcode.com/java/ext/com.google.android/android/). Do not use the JARs packaged with the Android SDK. These JARs only contain type-correct stubs for applications to compile against; they are not suitable for static analysis of the Android framework.
 
 
 Running regression tests
