@@ -109,16 +109,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
       if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
-    
-    // TODO: make this less slow
-    def isInApplicationCodePath(filePath : String) : Boolean = {
-      def computeCommonPrefix(str1 : String, str2 : String) : String =
-        str1.zip(str2).takeWhile(Function.tupled(_ == _)).map(_._1).mkString      
-      val commonPrefix = computeCommonPrefix(applicationCodePath, filePath)     
-      // if the common prefix is bigger than just the path to bin/, consider file to be in app code path
-      commonPrefix.size > (binPath.size + 1) // + 1 to account for the trailing slash
-    }          
-      
     val analysisScope = AnalysisScope.createJavaAnalysisScope()
 
     val harnessFile = if (useHarness) {
@@ -146,8 +136,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
           // types (such as application-defined Fragments). if we load these stubs as library, WALA won't respect these allocations
           // on the other hand, we want other stubs to be loaded as library because some (such as system service stubs) are used
           // to instrument the code of the Android libraries themselves
-          f.getAbsolutePath().contains(layoutStubFilePath) ||
-          isInApplicationCodePath(f.getAbsolutePath())) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
+          f.getAbsolutePath().contains(layoutStubFilePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       // ensure the harness class (if any) is only loaded as application; we don't want to reload it as library
       else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath()) analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
     })
