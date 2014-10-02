@@ -23,7 +23,7 @@ import scala.collection.JavaConversions._
 
 
 object AndroidLayoutStubGenerator {
-  protected val DEBUG = false
+  protected val DEBUG = true
 }
 
 class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]], 
@@ -221,18 +221,14 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     }
     
     // emit findViewById method that can return any of the child View's
-    if (viewFields.size != 0) {
-      writer.beginMethod(VIEW_TYPE, FIND_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findViewById
-      makeIdSwitchForLayoutElements(viewFields)
-      writer.endMethod() // end findViewById
-    }
-    
+    writer.beginMethod(VIEW_TYPE, FIND_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findViewById
+    makeIdSwitchForLayoutElements(viewFields)
+    writer.endMethod() // end findViewById
+
     // emit findFragmentById() method than can return child Fragments
-    if (fragmentFields.size != 0) {
-      writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
-      makeIdSwitchForLayoutElements(fragmentFields)
-      writer.endMethod() // end findFragmentById
-    }
+    writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
+    makeIdSwitchForLayoutElements(fragmentFields)
+    writer.endMethod() // end findFragmentById
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
