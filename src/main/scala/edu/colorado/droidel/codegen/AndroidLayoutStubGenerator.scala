@@ -23,7 +23,7 @@ import scala.collection.JavaConversions._
 
 
 object AndroidLayoutStubGenerator {
-  protected val DEBUG = true
+  protected val DEBUG = false
 }
 
 class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]], 
