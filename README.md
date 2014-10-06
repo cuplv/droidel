@@ -25,18 +25,12 @@ Installation
 ------------
 Installing Droidel requires Scala 2.10.2 or later, sbt, maven, and ant. Droidel depends on [WALA](https://github.com/wala/WALA) and it also uses the [JPhantom](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf) [tool](https://github.com/gbalats/jphantom). To install Droidel, run the following from Droidel's top-level directory:
 
-(1) Download WALA and install it to your local Maven repository (it doesn't matter where the WALA project lives w.r.t Droidel):
-
-    git clone https://github.com/wala/WALA.git
-    cd WALA
-    mvn clean install -DskipTests=true
-
-(2) Download and build unmanaged dependencies using the provided script:
+(1) Download and build unmanaged dependencies using the provided script:
     
     cd lib
     ./install_deps.sh
 
-(3) Build Droidel (from the droidel/ directory, do):
+(2) Build Droidel (from the droidel/ directory, do):
 
     sbt compile
 

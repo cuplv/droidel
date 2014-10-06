@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# download and build WALA
+git clone https://github.com/wala/WALA.git
+cd WALA
+mvn clean install -DskipTests=true
+cp WALA/com.ibm.wala.core/lib/primordial.jar.model ../
+cd ..
+
 # download and build JPhantom
 git clone https://github.com/gbalats/jphantom
 cd jphantom && ant jar

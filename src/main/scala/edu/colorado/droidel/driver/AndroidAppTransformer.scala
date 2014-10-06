@@ -155,10 +155,16 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
     getJVMLibFile match { 
       case Some(javaLibJar) => analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(javaLibJar))
       case None => sys.error("Can't find path to Java libraries. Exiting.")
-    }  
+    }
+
+    // add WALA stubs
+    getWALAStubs match {
+      case Some(stubFile) => analysisScope.addToScope(analysisScope.getPrimordialLoader, new JarFile(stubFile))
+      case None => sys.error("Can't find WALA stubs. Exiting.")
+    }
     
     analysisScope
-  } 
+  }
 
   type LayoutId = Int
   // make mapping from layout ID -> classes that use the corresponding layout
@@ -509,6 +515,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
   private def getJVMLibFile : Option[File] = {    
     val PATH = System.getProperty("java.home")
     List(new File(PATH + "/lib/rt.jar"), new File(PATH + "/../Classes/classes.jar")).find(f => f.exists())
+  }
+
+  def getWALAStubs : Option[File] = {
+    val f = new File("lib/primordial.jar.model")
+    if (f.exists()) Some(f) else None
   }
     
 }
