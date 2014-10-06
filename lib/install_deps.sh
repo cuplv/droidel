@@ -3,6 +3,8 @@
 # download and build WALA
 git clone https://github.com/wala/WALA.git
 cd WALA
+# use distinguished revision to avoid compilation issues
+git reset --hard c006dbcdd459eb82bc4fc4ae99ea67cb96162672
 mvn clean install -DskipTests=true
 cp WALA/com.ibm.wala.core/lib/primordial.jar.model ../
 cd ..
