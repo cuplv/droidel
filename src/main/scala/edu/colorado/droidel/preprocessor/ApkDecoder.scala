@@ -1,10 +1,12 @@
 package edu.colorado.droidel.preprocessor
 
 import java.io.File
+import scala.sys.process._
 import edu.colorado.droidel.util.JavaUtil
 
 /** Decode resources from an APK using apktool and decompile the APK using dex2jar or Dare*/
 class ApkDecoder(apkPath : String) {
+  val APKTOOL_JAR = "lib/apktool/apktool.jar"
   val apkName = apkPath.stripSuffix(".apk")
   val apk = new File(apkPath)
   assert(apk.isFile() && apk.getName().endsWith(".apk"))
@@ -15,8 +17,7 @@ class ApkDecoder(apkPath : String) {
       println("APK already decoded, using previous results")
       outputDir
     } else {
-      // TODO: check if app has already been processed by Droidel
-      decodeResources(outputDir)
+      decodeResources(apk)
       val decompiledJar = decompile
    
       // extract the decompiled jar in outputResDir/bin/classes
@@ -44,15 +45,11 @@ class ApkDecoder(apkPath : String) {
   }
   
   def decodeResources(apkToolOutputDir : File) : File = {
-    val args = Array("d", "-f", apkPath, apkToolOutputDir.getAbsolutePath())
-    try {
-      println("Running apktool")
-      brut.apktool.Main.main(args)
-    } catch {
-      case e : Throwable =>
-        println(s"Error running apktool: $e. Exiting")
-        sys.exit
-    }
+    // run apktool from the command line to avoid conflicts due to different versions of Apache commons used in
+    // apktool vs dex2jar
+    val cmd = s"java -jar $APKTOOL_JAR d -f $apkPath ${apkToolOutputDir.getAbsolutePath()}"
+    val output = cmd.!! // run apktool
+    println(output)
     
     assert(apkToolOutputDir.exists(), s"Apktool failed to produce expected output file ${apkToolOutputDir.getAbsolutePath()}")
     apkToolOutputDir

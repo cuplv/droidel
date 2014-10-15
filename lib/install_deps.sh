@@ -15,11 +15,9 @@ cd jphantom && ant jar
 cd ..
 
 # download apktool
-wget http://android-apktool.googlecode.com/files/apktool1.5.2.tar.bz2
-tar xvf apktool1.5.2.tar.bz2
-mv apktool1.5.2/*.jar .
-rm -r apktool1.5.2/
-rm apktool1.5.2.tar.bz2
+wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.0.0rc2.jar
+mkidr apktool
+mv apktool_2.0.0rc2.jar apktool/apktool.jar
 
 # download dex2jar
 wget http://dex2jar.googlecode.com/files/dex2jar-0.0.9.15.zip
