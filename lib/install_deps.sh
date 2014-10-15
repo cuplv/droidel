@@ -16,7 +16,7 @@ cd ..
 
 # download apktool
 wget https://bitbucket.org/iBotPeaches/apktool/downloads/apktool_2.0.0rc2.jar
-mkidr apktool
+mkdir apktool
 mv apktool_2.0.0rc2.jar apktool/apktool.jar
 
 # download dex2jar
