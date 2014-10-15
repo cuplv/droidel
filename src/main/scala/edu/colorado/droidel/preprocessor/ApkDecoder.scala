@@ -17,7 +17,7 @@ class ApkDecoder(apkPath : String) {
       println("APK already decoded, using previous results")
       outputDir
     } else {
-      decodeResources(apk)
+      decodeResources(apk, outputDir)
       val decompiledJar = decompile
    
       // extract the decompiled jar in outputResDir/bin/classes
@@ -44,10 +44,11 @@ class ApkDecoder(apkPath : String) {
     dex2jarOutput
   }
   
-  def decodeResources(apkToolOutputDir : File) : File = {
+  def decodeResources(apkFile : File, apkToolOutputDir : File) : File = {
     // run apktool from the command line to avoid conflicts due to different versions of Apache commons used in
     // apktool vs dex2jar
-    val cmd = s"java -jar $APKTOOL_JAR d -f $apkPath ${apkToolOutputDir.getAbsolutePath()}"
+    val cmd = s"java -jar $APKTOOL_JAR d $apkFile -o ${apkToolOutputDir.getAbsolutePath()}"
+    println(s"running $cmd")
     val output = cmd.!! // run apktool
     println(output)
     

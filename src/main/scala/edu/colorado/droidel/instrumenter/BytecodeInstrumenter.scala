@@ -1,33 +1,17 @@
 package edu.colorado.droidel.instrumenter
 
-import java.io.BufferedWriter
-import java.io.File
-import java.io.OutputStreamWriter
+import java.io.{BufferedWriter, File, OutputStreamWriter}
+
 import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.shrikeBT.Disassembler
-import com.ibm.wala.shrikeBT.DupInstruction
-import com.ibm.wala.shrikeBT.MethodData
-import com.ibm.wala.shrikeBT.MethodEditor
 import com.ibm.wala.shrikeBT.MethodEditor.Output
-import com.ibm.wala.shrikeBT.PutInstruction
+import com.ibm.wala.shrikeBT.{Disassembler, DupInstruction, MethodData, MethodEditor, PutInstruction}
 import com.ibm.wala.shrikeBT.analysis.Verifier
-import com.ibm.wala.shrikeBT.shrikeCT.ClassInstrumenter
-import com.ibm.wala.shrikeBT.shrikeCT.OfflineInstrumenter
-import com.ibm.wala.shrikeCT.ClassReader
-import com.ibm.wala.shrikeCT.ClassReader.AttrIterator
-import com.ibm.wala.shrikeCT.ClassWriter
+import com.ibm.wala.shrikeBT.shrikeCT.{ClassInstrumenter, OfflineInstrumenter}
+import com.ibm.wala.shrikeCT.{ClassConstants, ClassReader, ClassWriter}
 import com.ibm.wala.shrikeCT.ClassWriter.Element
 import com.ibm.wala.types.FieldReference
-import com.ibm.wala.types.TypeName
-import com.ibm.wala.types.TypeReference
-import com.ibm.wala.shrikeCT.ClassConstants
-import com.ibm.wala.classLoader.IClass
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.shrikeBT.InvokeInstruction
-import com.ibm.wala.shrikeBT.IInvokeInstruction
-import com.ibm.wala.shrikeBT.PopInstruction
-import edu.colorado.droidel.util.Types._
 import edu.colorado.droidel.util.ClassUtil
+import edu.colorado.droidel.util.Types._
 
 
 class BytecodeInstrumenter {
@@ -89,7 +73,7 @@ class BytecodeInstrumenter {
       case access if isProtected(access) => (access & ~ClassConstants.ACC_PROTECTED) | ClassConstants.ACC_PUBLIC
       case access if isPrivate(access) => (access & ~ClassConstants.ACC_PRIVATE) | ClassConstants.ACC_PUBLIC
       case _ => 
-        println(s"Warning: unknown access level $access. Bad decompilation suspected")
+        if (DEBUG) println(s"Warning: unknown access level $access. Bad decompilation suspected")
         access | ClassConstants.ACC_PUBLIC
     }
       
