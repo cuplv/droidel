@@ -1,16 +1,12 @@
 package edu.colorado.droidel.constants
 
-import scala.collection.JavaConversions._
-import AndroidConstants._
-import com.ibm.wala.classLoader.IClass
+import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.types.TypeReference
-import com.ibm.wala.types.ClassLoaderReference
+import com.ibm.wala.types.{ClassLoaderReference, MethodReference, Selector, TypeReference}
+import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.util.ClassUtil
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.types.TypeName
-import com.ibm.wala.types.Selector
+
+import scala.collection.JavaConversions._
 
 /** list taken from FlowDroid's AndroidEntryPointConstants.java */
 object AndroidLifecycle {
@@ -92,10 +88,13 @@ object AndroidLifecycle {
                               FRAGMENT_ONSTART)
   )
     
-  def getFrameworkCreatedClasses(cha : IClassHierarchy) : Iterable[IClass] = frameworkCbMap.keys.map(c => {
-    val clazz = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(c)))
-    assert(clazz != null, s"Couldn't find $c in class hierarchy")
-    clazz
+  def getFrameworkCreatedClasses(cha : IClassHierarchy) : Iterable[IClass] =
+    frameworkCbMap.keys.foldLeft (List.empty[IClass]) ((l, c) => {
+      val clazz = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(c)))
+      if (clazz == null) {
+        println(s"Warning: couldn't find $c in class hierarchy")
+        l
+      } else clazz :: l
   })
   
   def isFrameworkCreatedType(c : IClass, cha : IClassHierarchy) : Boolean = getFrameworkCreatedClasses(cha).contains(c)
