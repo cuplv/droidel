@@ -101,8 +101,8 @@ class LayoutParser extends AndroidParser {
   }
   
   // TODO: handle these in some way?
-  val NO_PARSE = Set("styles.xml", "strings.xml", "arrays.xml")  
-  
+  val NO_PARSE = Set("styles.xml", "strings.xml", "arrays.xml")
+
   /** @return (manifest representation, resources map) */
   def parseAndroidLayout(appDir : File, binDir : File, manifest : AndroidManifest, layoutIdClassMap : Map[Int,Set[IClass]]) : Map[IClass,Set[LayoutElement]] = {
     require(appDir.isDirectory())
@@ -144,6 +144,12 @@ class LayoutParser extends AndroidParser {
         if (res) println(s"Warning: layout file $declFile uses unsupported construct $label")
         res
       }
+
+      var tmpNameCounter = 0
+      val FAKE = "__fake"
+      def mkFakeName : String = { tmpNameCounter += 1; FAKE + tmpNameCounter }
+      def isFake(name : String) : Boolean = name.startsWith(FAKE)
+      def uniquifyString(str : String) = { tmpNameCounter += 1; s"$str$tmpNameCounter" }
       
       @annotation.tailrec
       def parseLayoutElementsRec(worklist: Seq[Node], layoutElems : Set[LayoutElement] = Set.empty[LayoutElement]) : Set[LayoutElement] = worklist match {
@@ -163,7 +169,7 @@ class LayoutParser extends AndroidParser {
                 (parsedId, stripped)                
               case None => (None, mkFakeName)
             }
-            val name = getAndroidPrefixedAttrOption(node, "name") match {
+            val name = uniquifyString(getAndroidPrefixedAttrOption(node, "name") match {
               case Some(name) => name
               case None =>
                 // try getting the class instead of the name
@@ -174,10 +180,10 @@ class LayoutParser extends AndroidParser {
                     // increases the readability of the stubs
                     idStr
                 }               
-            }
+            })
             
             // variant of name that is a valid Java identifier
-            val checkedName = if (SourceVersion.isName(idStr)) idStr else mkFakeName
+            val checkedName = if (SourceVersion.isName(idStr)) uniquifyString(idStr) else mkFakeName
 
             try {
               val newElem = if (node.label == "fragment") {
@@ -274,9 +280,5 @@ class LayoutParser extends AndroidParser {
 
     resolveIncludes(resourcesMap) - NO_CLASS
   }
-  
-  var tmpNameCounter = 0
-  val FAKE = "__fake"
-  private def mkFakeName : String = { tmpNameCounter += 1; FAKE + tmpNameCounter }
-  private def isFake(name : String) : Boolean = name.startsWith(FAKE)    
+
 }
