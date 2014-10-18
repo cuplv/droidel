@@ -166,10 +166,10 @@ class LayoutParser extends AndroidParser {
                     None
                   case id => Some(id)
                 }
-                (parsedId, stripped)                
+                (parsedId, uniquifyString(stripped))
               case None => (None, mkFakeName)
             }
-            val name = uniquifyString(getAndroidPrefixedAttrOption(node, "name") match {
+            val name = getAndroidPrefixedAttrOption(node, "name") match {
               case Some(name) => name
               case None =>
                 // try getting the class instead of the name
@@ -180,10 +180,10 @@ class LayoutParser extends AndroidParser {
                     // increases the readability of the stubs
                     idStr
                 }               
-            })
+            }
             
             // variant of name that is a valid Java identifier
-            val checkedName = if (SourceVersion.isName(idStr)) uniquifyString(idStr) else mkFakeName
+            val checkedName = if (SourceVersion.isName(idStr)) idStr else mkFakeName
 
             try {
               val newElem = if (node.label == "fragment") {
