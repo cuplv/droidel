@@ -103,6 +103,12 @@ class LayoutParser extends AndroidParser {
   // TODO: handle these in some way?
   val NO_PARSE = Set("styles.xml", "strings.xml", "arrays.xml")
 
+  var tmpNameCounter = 0
+  val FAKE = "__fake"
+  def mkFakeName : String = { tmpNameCounter += 1; FAKE + tmpNameCounter }
+  def isFake(name : String) : Boolean = name.startsWith(FAKE)
+  def uniquifyString(str : String) = { tmpNameCounter += 1; s"$str$tmpNameCounter" }
+
   /** @return (manifest representation, resources map) */
   def parseAndroidLayout(appDir : File, binDir : File, manifest : AndroidManifest, layoutIdClassMap : Map[Int,Set[IClass]]) : Map[IClass,Set[LayoutElement]] = {
     require(appDir.isDirectory())
@@ -144,12 +150,6 @@ class LayoutParser extends AndroidParser {
         if (res) println(s"Warning: layout file $declFile uses unsupported construct $label")
         res
       }
-
-      var tmpNameCounter = 0
-      val FAKE = "__fake"
-      def mkFakeName : String = { tmpNameCounter += 1; FAKE + tmpNameCounter }
-      def isFake(name : String) : Boolean = name.startsWith(FAKE)
-      def uniquifyString(str : String) = { tmpNameCounter += 1; s"$str$tmpNameCounter" }
       
       @annotation.tailrec
       def parseLayoutElementsRec(worklist: Seq[Node], layoutElems : Set[LayoutElement] = Set.empty[LayoutElement]) : Set[LayoutElement] = worklist match {
