@@ -1,18 +1,19 @@
 package edu.colorado.droidel.preprocessor
 
-import java.util.jar.JarFile
-import edu.colorado.droidel.util.JavaUtil
 import java.io.File
+
+import edu.colorado.droidel.util.JavaUtil
+
 import scala.sys.process._
 
 /** Use JPhantom (https://github.com/gbalats/jphantom) [Balatsouras and Smaragdakis OOPSLA '13]
  *  to complement class hierarchy by filling in missing classes. This is very important because
  *  WALA's class hierarchy analysis silently discards classes whose superclass cannot be found */
-class CHAComplementer(appJar : File, libJars : List[File], jPhantomOutDir : File) { 
+class CHAComplementer(appJar : File, droidelHome : String, libJars : List[File], jPhantomOutDir : File) {
   
   def complement() : Boolean = {
 //    val JPHANTOM_JAR = "jphantom/build/jar/jphantom.jar"
-    val JPHANTOM_JAR = "lib/jphantom/build/jar/jphantom.jar"
+    val JPHANTOM_JAR = s"$droidelHome/lib/jphantom/build/jar/jphantom.jar"
     assert(new File(JPHANTOM_JAR).exists(), s"Can't find JPhantom; expecting the JAR at $JPHANTOM_JAR")
     // path to script that runs JPhantom
     val JPHANTOM = s"java -jar $JPHANTOM_JAR"

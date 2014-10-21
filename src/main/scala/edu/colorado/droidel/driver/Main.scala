@@ -9,9 +9,11 @@ object Main {
   def main(args: Array[String]) : Unit = {
     val APP = "-app"
     val ANDROID_JAR = "-android_jar"
-    val NO_JPHANTOM = "-no-jphantom"
+    val NO_JPHANTOM = "-no_jphantom"
+    val DROIDEL_HOME = "-droidel_home"
     val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
-    	           s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis")
+    	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
+                   s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
     val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom", false))
     
@@ -54,6 +56,7 @@ object Main {
       val (parsedArgs, parsedFlags) = parseOpts(args.toList, Map.empty[String,String], Map.empty[String,Boolean])
       val app = parsedArgs.getOrElse(APP, missingArgError(APP))
       val androidJar = parsedArgs.getOrElse(ANDROID_JAR, missingArgError(ANDROID_JAR))
+      val droidelHome = parsedArgs.getOrElse(DROIDEL_HOME, ".")
       val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
       
       val appFile = new File(app) 
@@ -61,10 +64,11 @@ object Main {
       // convert the input from an apk into our desired format if necessary
       val droidelInput = if (appFile.isFile())            
         // decode the app resources and decompile the dex bytecodes to Java bytecodes
-        new ApkDecoder(app).decodeApp.getAbsolutePath()
+        new ApkDecoder(app, droidelHome).decodeApp.getAbsolutePath()
       else app   
 
-      val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), useJPhantom = !noJphantom)
+      val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
+                                                  useJPhantom = !noJphantom)
       transformer.transformApp()
     }
   }

@@ -29,7 +29,7 @@ object AndroidAppTransformer {
   private val DEBUG = false
 } 
 
-class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : Boolean = true, 
+class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : String, useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true, cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
@@ -69,7 +69,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, useJPhantom : 
         val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true) 
         val jPhantomTimer = new Timer
         jPhantomTimer.start
-        val success = new CHAComplementer(originalJar, androidJar :: libJars, jPhantomizedBinDir).complement        
+        val success = new CHAComplementer(originalJar, droidelHome, androidJar :: libJars, jPhantomizedBinDir).complement
         jPhantomTimer.printTimeTaken("Running JPhantom")
         // remove the JAR we made
         originalJar.delete()

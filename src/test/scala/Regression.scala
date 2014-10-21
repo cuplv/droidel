@@ -31,7 +31,8 @@ object Regression {
       	if (droidelOutBinDir.exists()) Util.deleteAllFiles(droidelOutBinDir)
       
       	// generate stubs and a specialized harness for the app
-      	val transformer = new AndroidAppTransformer(testPath, androidJar, 
+      	val transformer = new AndroidAppTransformer(testPath, androidJar,
+                                                    droidelHome = ".",
       	                                            instrumentLibs = instrumentLibs,
       	// our tests should have all the library dependencies included, so we don't need JPhantom
                                                     useJPhantom = useJPhantom,

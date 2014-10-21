@@ -5,8 +5,8 @@ import scala.sys.process._
 import edu.colorado.droidel.util.JavaUtil
 
 /** Decode resources from an APK using apktool and decompile the APK using dex2jar or Dare*/
-class ApkDecoder(apkPath : String) {
-  val APKTOOL_JAR = "lib/apktool/apktool.jar"
+class ApkDecoder(apkPath : String, droidelHome : String) {
+  val APKTOOL_JAR = s"$droidelHome/lib/apktool/apktool.jar"
   val apkName = apkPath.stripSuffix(".apk")
   val apk = new File(apkPath)
   assert(apk.isFile() && apk.getName().endsWith(".apk"))
