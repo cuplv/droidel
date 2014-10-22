@@ -1,17 +1,18 @@
 package edu.colorado.droidel.codegen
 
-import java.io.{File, FileWriter, StringWriter}
+import java.io.{File, StringWriter}
 import java.util.EnumSet
-import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
+import javax.lang.model.element.Modifier.{PUBLIC, STATIC}
+
+import com.ibm.mobile.droidertemplate.WriterFactory
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, TypeReference}
-import com.squareup.javawriter.JavaWriter
 import edu.colorado.droidel.codegen.AndroidHarnessGenerator._
 import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
 import edu.colorado.droidel.util.{CHAUtil, ClassUtil, JavaUtil, Timer}
+
 import scala.collection.JavaConversions._
-import com.ibm.mobile.droidertemplate.WriterFactory
 
 object AndroidHarnessGenerator {
   private val DEBUG = false
@@ -149,7 +150,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     
     val strWriter = new StringWriter
     
-        val harnessWriter = WriterFactory.factory(strWriter);
+    val harnessWriter = WriterFactory.factory(strWriter);
          
     harnessWriter.emitBegin();
 

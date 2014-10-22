@@ -114,12 +114,14 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     assert(viewClass != null, "Couldn't find View class in class hierarchy. Something is very wrong")
     val fragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(FRAGMENT_TYPE)))
     val appFragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE)))
-    
+
+    def isFragment(c : IClass, fragmentType : IClass) = fragmentClass != null && cha.isAssignableFrom(fragmentType, c)
+    def isSupportFragment(c : IClass) = isFragment(c, fragmentClass)
+    def isAppFragment(c : IClass) = isFragment(c, appFragmentClass)
+
     def isSubtypeOfViewOrFragment(elem : LayoutElement, elemClass : IClass) : Boolean = elem match {
       case elem : LayoutView => cha.isAssignableFrom(viewClass, elemClass)
-      case elem : LayoutFragment => 
-        (fragmentClass != null && cha.isAssignableFrom(fragmentClass, elemClass)) ||
-        (appFragmentClass != null && cha.isAssignableFrom(appFragmentClass, elemClass))
+      case elem : LayoutFragment => isSupportFragment(elemClass) || isAppFragment(elemClass)
       case _ => false
     } 
     
@@ -150,8 +152,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       })
       
     val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
-    // not dealing with fragments for now
     val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
+    val usesSupportFragments = fragmentFields.forall(e => isSupportFragment(cha.lookupClass(e.typ)))
         
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
@@ -226,7 +228,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     writer.endMethod() // end findViewById
 
     // emit findFragmentById() method than can return child Fragments
-    writer.beginMethod(FRAGMENT_TYPE, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
+    val returnType = if (usesSupportFragments) FRAGMENT_TYPE else APP_FRAGMENT_TYPE
+    writer.beginMethod(returnType, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
     makeIdSwitchForLayoutElements(fragmentFields)
     writer.endMethod() // end findFragmentById
     
