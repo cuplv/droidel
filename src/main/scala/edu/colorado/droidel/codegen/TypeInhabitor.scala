@@ -1,16 +1,13 @@
 package edu.colorado.droidel.codegen
 
-import scala.collection.JavaConversions._
-import edu.colorado.droidel.util.CHAUtil
-import edu.colorado.droidel.util.ClassUtil
-import com.ibm.wala.classLoader.IClass
+import com.ibm.wala.classLoader.{IClass, IField, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
-import edu.colorado.droidel.util.Util
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.classLoader.IField
 import com.ibm.wala.types.TypeReference
+import edu.colorado.droidel.codegen.TypeInhabitor._
 import edu.colorado.droidel.util.Types._
-import TypeInhabitor._
+import edu.colorado.droidel.util.{ClassUtil, Util}
+
+import scala.collection.JavaConversions._
 
 object TypeInhabitor {
   val DEBUG = false
@@ -74,7 +71,10 @@ class TypeInhabitor(reuseInhabitants : Boolean = true) {
       doAllocAndReturnVar : Boolean) : (Option[Expression],List[Statement]) =
     if (t.isPrimitiveType()) (Some(inhabitPrimitiveType(t)), allocs)
     else if (t.isArrayType()) (Some(inhabitArrayType(t)), allocs)
-    else inhabitReferenceType(CHAUtil.lookupClass(t, cha), cha, allocs, doAllocAndReturnVar)
+    else cha.lookupClass(t) match {
+      case null => (Some(NULL), allocs) // can't resolve type, so clearly can't inhabit it
+      case c => inhabitReferenceType(c, cha, allocs, doAllocAndReturnVar)
+    }
 
   private def inhabitStaticFieldRead(f : IField) : Expression = {
     require(f.isStatic())
