@@ -30,7 +30,9 @@ object AndroidAppTransformer {
 } 
 
 class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : String, useJPhantom : Boolean = true,
-                            instrumentLibs : Boolean = true, cleanupGeneratedFiles : Boolean = true) {
+                            instrumentLibs : Boolean = true,
+                            doInstrumentation : Boolean = true,
+                            cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
@@ -332,14 +334,16 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
         Util.updateSMap(m, makeClassName(method.getDeclaringClass()), method)
       )        
     })
-    if (!cbsToMakePublic.isEmpty || !allocMap.isEmpty || !stubMap.isEmpty) { // if there is instrumentation to do      
+    if (doInstrumentation && (!cbsToMakePublic.isEmpty || !allocMap.isEmpty || !stubMap.isEmpty)) { // if there is instrumentation to do
+      println("Performing bytecode instrumentation")
       val toInstrumentJarName = "toInstrument.jar"
       val instrumentedJarOutputName = "instrumented.jar"
       // create JAR containing classes to instrument only
       val toInstrument = JavaUtil.createJar(appBinFile, toInstrumentJarName, "", startInsideDir = true, j => j.isDirectory() || 
         cbsToMakePublic.contains(j.getName()) || allocMap.contains(j.getName()) || stubMap.contains(j.getName()))
       // perform instrumentation
-      val instrumentedJar = new BytecodeInstrumenter().doIt(toInstrument, allocMap, stubMap, cbsToMakePublic, instrumentedJarOutputName)    
+      val instrumentedJar =
+        new BytecodeInstrumenter().doIt(toInstrument, allocMap, stubMap, cbsToMakePublic, instrumentedJarOutputName)
       assert(instrumentedJar.exists(), s"Instrumentation did not create JAR file $instrumentedJar")
       
       // merge JAR containing instrumented classes on top of JAR containing original app. very important that instrumented JAR 
@@ -362,7 +366,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy, manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
       stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], 
       stubPaths : Iterable[File]) : Unit = {
-    println("Performing bytecode instrumentation")
     
     // make a map from framework class -> set of application classes implementing framework class)
     // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
@@ -430,8 +433,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
      
       timer.printTimeTaken("Performing bytecode instrumentation")
 
-      println("Generating harness")           
-      generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap, 
+      println("Generating harness")
+      generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap,
                                               manifestDeclaredCallbackMap, instrumentationFields, stubPaths, instrumentedJar, cha)
       timer.printTimeTaken("Generating and compiling harness")
 
@@ -502,7 +505,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     //val specializedLayoutTypeCreationMap = makeSpecializedLayoutTypeCreationMap(stubPaths)
     // inject the stubs via bytecode instrumentation and generate app-specialized harness
     doInstrumentationAndGenerateHarness(cha, manifestDeclaredCallbackMap, specializedLayoutGettersMap, stubPaths)
-    
+
     // cleanup generated stub and harness source files
     if (cleanupGeneratedFiles) {
       val stubDir = new File(DroidelConstants.STUB_DIR)

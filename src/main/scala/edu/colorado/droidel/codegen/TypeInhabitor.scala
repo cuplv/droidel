@@ -199,7 +199,8 @@ class TypeInhabitor(reuseInhabitants : Boolean = true) {
 
   // create a cast expression (@param typ) @param exp
   def inhabitCast(exp : Expression, typ : IClass) : Expression =
-    s"(${ClassUtil.deWalaifyClassName(typ)}) $exp"
+    if (typ.isPublic) s"(${ClassUtil.deWalaifyClassName(typ)}) $exp"
+    else exp
   
   // inhabit a primitive type with its default value
   private def inhabitPrimitiveType(t : TypeReference) : Expression = t match {

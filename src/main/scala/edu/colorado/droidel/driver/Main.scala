@@ -10,12 +10,14 @@ object Main {
     val APP = "-app"
     val ANDROID_JAR = "-android_jar"
     val NO_JPHANTOM = "-no_jphantom"
+    val NO_INSTRUMENT = "-no_instrument"
     val DROIDEL_HOME = "-droidel_home"
     val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
     	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
-    val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom", false))
+    val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false,
+                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation. Less sound, but faster", false)))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
@@ -58,6 +60,7 @@ object Main {
       val androidJar = parsedArgs.getOrElse(ANDROID_JAR, missingArgError(ANDROID_JAR))
       val droidelHome = parsedArgs.getOrElse(DROIDEL_HOME, ".")
       val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
+      val noInstrument = parsedFlags.getOrElse(NO_INSTRUMENT, flags(NO_INSTRUMENT)._2)
       
       val appFile = new File(app) 
       assert(appFile.exists(), s"Couldn't find input application $app")
@@ -68,7 +71,8 @@ object Main {
       else app   
 
       val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
-                                                  useJPhantom = !noJphantom)
+                                                  useJPhantom = !noJphantom,
+                                                  doInstrumentation = !noInstrument)
       transformer.transformApp()
     }
   }
