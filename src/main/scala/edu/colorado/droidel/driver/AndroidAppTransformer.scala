@@ -334,7 +334,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
         Util.updateSMap(m, makeClassName(method.getDeclaringClass()), method)
       )        
     })
-    if (doInstrumentation && (!cbsToMakePublic.isEmpty || !allocMap.isEmpty || !stubMap.isEmpty)) { // if there is instrumentation to do
+    if (!cbsToMakePublic.isEmpty || !allocMap.isEmpty || !stubMap.isEmpty) { // if there is instrumentation to do
       println("Performing bytecode instrumentation")
       val toInstrumentJarName = "toInstrument.jar"
       val instrumentedJarOutputName = "instrumented.jar"
@@ -428,10 +428,12 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       // perform two kinds of instrumentations on the bytecode of the app:
       // (1) find all types allocated in the application and instrument the allocating method to extract the allocation via an instrumentation field
       // (2) make all callback methods in the appClassCbMap public so they can be called from the harness 
-      val (instrumentedJar, instrumentationFields) = 
-        instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
-     
-      timer.printTimeTaken("Performing bytecode instrumentation")
+      val (instrumentedJar, instrumentationFields) =
+        if (doInstrumentation) {
+          val res = instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
+          timer.printTimeTaken("Performing bytecode instrumentation")
+          res
+        } else (JavaUtil.createJar(new File(appBinPath), "original.jar", "", startInsideDir = true), Nil)
 
       println("Generating harness")
       generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap,
