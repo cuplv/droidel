@@ -16,14 +16,14 @@ object Main {
     	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
-    val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false,
-                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation. Less sound, but faster", false)))
+    val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false),
+                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation. Less sound, but faster", false))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
       println("Options:")
       opts.foreach(entry => println(s"${entry._1}\t${entry._2}"))
-      flags.foreach(entry => println(s"${entry._1}\t${entry._1}  default: ${entry._2}"))
+      flags.foreach(entry => println(s"${entry._1}\t${entry._2._1}  default: ${entry._2._2}"))
     }
  
     if (args.length == 0) printUsage
