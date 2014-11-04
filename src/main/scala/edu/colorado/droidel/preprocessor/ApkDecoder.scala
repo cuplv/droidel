@@ -48,7 +48,6 @@ class ApkDecoder(apkPath : String, droidelHome : String) {
     // run apktool from the command line to avoid conflicts due to different versions of Apache commons used in
     // apktool vs dex2jar
     val cmd = s"java -jar $APKTOOL_JAR d $apkFile -o ${apkToolOutputDir.getAbsolutePath()}"
-    println(s"running $cmd")
     val output = cmd.!! // run apktool
     println(output)
     

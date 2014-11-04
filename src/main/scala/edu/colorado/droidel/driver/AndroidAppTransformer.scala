@@ -31,7 +31,6 @@ object AndroidAppTransformer {
 
 class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : String, useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true,
-                            doInstrumentation : Boolean = true,
                             cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
@@ -322,6 +321,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
         (newFlds, newAllocs, newCalls)
       } else trio
     )
+    timer.printTimeTaken("Computing instrumentation to do")
     
     // create JAR containing original classes
     val originalJarName = "original.jar"
@@ -386,6 +386,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
             }
         }
       })
+
    
     val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap
     // TODO: parse and check more than just Activity's. also, use the manifest to curate what we include above so we do
@@ -400,7 +401,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
          if (!useJPhantom) println(s"Recommended: use JPhantom! It is likely that $typeRef is being discarded due to a missing superclass that JPhantom can generate")
          if (DEBUG) sys.error("Likely unsoundness, exiting")
        }
-    })      
+    })
       
     // make a map fron application class -> set of lifecyle and manifest-declared callbacks on application class (+ all on* methods)
     // not that this map does *not* contain callbacks from implementing additional callback interfaces -- these are discovered
@@ -423,25 +424,23 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
           assert(!m.contains(appClass), s"Callback map already has entry for app class $appClass")
           m + (appClass ->  allCbs)
         })
-      })      
+      })
       
-      // perform two kinds of instrumentations on the bytecode of the app:
-      // (1) find all types allocated in the application and instrument the allocating method to extract the allocation via an instrumentation field
-      // (2) make all callback methods in the appClassCbMap public so they can be called from the harness 
-      val (instrumentedJar, instrumentationFields) =
-        if (doInstrumentation) {
-          val res = instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
-          timer.printTimeTaken("Performing bytecode instrumentation")
-          res
-        } else (JavaUtil.createJar(new File(appBinPath), "original.jar", "", startInsideDir = true), Nil)
+    // perform two kinds of instrumentations on the bytecode of the app:
+    // (1) find all types allocated in the application and instrument the allocating method to extract the allocation
+    // via an instrumentation field
+    // (2) make all callback methods in the appClassCbMap public so they can be called from the harness
+    val (instrumentedJar, instrumentationFields) =
+      instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
+    timer.printTimeTaken("Performing bytecode instrumentation")
 
-      println("Generating harness")
-      generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap,
+    println("Generating harness")
+    generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap,
                                               manifestDeclaredCallbackMap, instrumentationFields, stubPaths, instrumentedJar, cha)
-      timer.printTimeTaken("Generating and compiling harness")
+    timer.printTimeTaken("Generating and compiling harness")
 
-      // no need to keep the JAR; we have an output directory containing these files
-      if (instrumentedJar.exists()) instrumentedJar.delete()     
+    // no need to keep the JAR; we have an output directory containing these files
+    if (instrumentedJar.exists()) instrumentedJar.delete()
   }
   
   private def generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],

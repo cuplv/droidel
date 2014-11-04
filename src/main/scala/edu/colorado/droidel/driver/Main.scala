@@ -17,7 +17,7 @@ object Main {
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
     val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false),
-                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation. Less sound, but faster", false))
+                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
@@ -72,7 +72,7 @@ object Main {
 
       val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
                                                   useJPhantom = !noJphantom,
-                                                  doInstrumentation = !noInstrument)
+                                                  instrumentLibs = !noInstrument)
       transformer.transformApp()
     }
   }
