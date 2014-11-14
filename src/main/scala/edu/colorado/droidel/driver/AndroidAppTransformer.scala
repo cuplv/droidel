@@ -29,7 +29,8 @@ object AndroidAppTransformer {
   private val DEBUG = false
 } 
 
-class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : String, useJPhantom : Boolean = true,
+class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : String,
+                            useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true,
                             cleanupGeneratedFiles : Boolean = true) {
   require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
@@ -263,7 +264,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val (instrFlds, allocMap, stubMap) = cha.foldLeft (List.empty[FieldReference], 
                                                        Map.empty[String,Map[IMethod,Iterable[(Int, List[FieldReference])]]],
                                                        Map.empty[String,Map[IMethod,Iterable[(Int, Patch)]]]) ((trio, clazz) =>
-      if (instrumentLibs || !ClassUtil.isLibrary(clazz)) {                                                        
+      if (instrumentLibs || !ClassUtil.isLibrary(clazz)) {
         val (flds, allocMap, stubMap) = clazz.getDeclaredMethods()
                                         .foldLeft (trio._1, 
                                                    Map.empty[IMethod,List[(Int, List[FieldReference])]],
@@ -522,7 +523,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   def getWALAStubs : Option[File] = {
-    val f = new File("lib/primordial.jar.model")
+    val f = new File("config/primordial.jar.model")
     if (f.exists()) Some(f) else None
   }
     

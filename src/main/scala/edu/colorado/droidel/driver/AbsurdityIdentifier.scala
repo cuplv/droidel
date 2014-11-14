@@ -1,27 +1,17 @@
 package edu.colorado.droidel.driver
 
-import scala.collection.JavaConversions._
-import java.io.PrintWriter
-import java.io.File
-import edu.colorado.droidel.util.ClassUtil
-import edu.colorado.droidel.constants.DroidelConstants
-import com.ibm.wala.classLoader.IBytecodeMethod
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.ssa.SSAGetInstruction
-import com.ibm.wala.ssa.IR
-import com.ibm.wala.ipa.callgraph.CGNode
-import edu.colorado.droidel.util.Util
-import edu.colorado.droidel.util.IRUtil
-import edu.colorado.droidel.util.Timer
-import com.ibm.wala.ipa.callgraph.propagation.HeapModel
-import com.ibm.wala.classLoader.IMethod
+import java.io.{File, PrintWriter}
+
 import com.ibm.wala.analysis.pointers.HeapGraph
-import com.ibm.wala.ssa.SSAInstruction
-import com.ibm.wala.ssa.SSAConditionalBranchInstruction
-import com.ibm.wala.ssa.SSAInvokeInstruction
-import com.ibm.wala.ipa.callgraph.propagation.LocalPointerKey
-import com.ibm.wala.ipa.callgraph.propagation.PointerKey
-import com.ibm.wala.ipa.callgraph.propagation.InstanceKey
+import com.ibm.wala.classLoader.{IBytecodeMethod, IMethod}
+import com.ibm.wala.ipa.callgraph.CGNode
+import com.ibm.wala.ipa.callgraph.propagation.{HeapModel, InstanceKey, LocalPointerKey, PointerKey}
+import com.ibm.wala.ssa.{IR, SSAConditionalBranchInstruction, SSAGetInstruction, SSAInstruction, SSAInvokeInstruction}
+import com.ibm.wala.types.MethodReference
+import edu.colorado.droidel.constants.DroidelConstants
+import edu.colorado.droidel.util.{ClassUtil, IRUtil, Util}
+
+import scala.collection.JavaConversions._
 
 /** class for identifying "absurdities", or likely soundness issues in a callgraph/points-to analysis */
 class AbsurdityIdentifier(harnessClassName : String) {
@@ -36,7 +26,7 @@ class AbsurdityIdentifier(harnessClassName : String) {
   def makeLPK(valueNum : Int, n : CGNode, hm : HeapModel) : LocalPointerKey =
     hm.getPointerKeyForLocal(n, valueNum).asInstanceOf[LocalPointerKey]
   
-  def getPt(k : PointerKey, hg : HeapGraph) : Set[InstanceKey] = 
+  def getPt(k : PointerKey, hg : HeapGraph[InstanceKey]) : Set[InstanceKey] =
     hg.getSuccNodes(k).toSet.map((k : Object) => k.asInstanceOf[InstanceKey])
   
   def formatMethod(m : MethodReference) : String = 
@@ -46,21 +36,11 @@ class AbsurdityIdentifier(harnessClassName : String) {
   
   def getAbsurdities(walaRes : WalaAnalysisResults, doXmlOutput : Boolean = false) : Iterable[Absurdity] = {
     import walaRes._
-  
-    //cha.foreach(c => println(c))    
-    /*cg.foreach(n => if (!ClassUtil.isLibrary(n) || isGeneratedMethod(n.getMethod()) 
-        || n.getMethod().getDeclaringClass().getName().toString().contains("AccountManager")) {
-      println(n.getIR())
-      n.getIR().iterateCallSites().foreach(site => { 
-        val tgts = cg.getPossibleTargets(n, site)
-        if (tgts.isEmpty()) println("No targets for call site " + site + " in " + ClassUtil.pretty(n))
-      })
-    })*/
     
     val methodNodeMap = cg.filter(n => !ClassUtil.isLibrary(n) && !isGeneratedMethod(n.getMethod())).groupBy(n => n.getMethod().getReference())           
         
     def getAbsurditiesInternal[T](absurdityName : String, 
-                                  getAbsurditiesForNode : (CGNode, HeapModel, HeapGraph) => Iterable[T],
+                                  getAbsurditiesForNode : (CGNode, HeapModel, HeapGraph[InstanceKey]) => Iterable[T],
                                   xmlifyAbsurdity : (T, String, MethodReference) => String) : List[String] = 
       methodNodeMap.foldLeft (List.empty[Absurdity]) ((l, entry) => {
         val caller = entry._1
@@ -161,7 +141,7 @@ class AbsurdityIdentifier(harnessClassName : String) {
       }
   }
   
-  def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = n.getIR match {
+  def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = n.getIR match {
     case null => Nil
     case ir => ir.getInstructions().toIterable.zipWithIndex.collect({
       case (i : SSAConditionalBranchInstruction, index : Int) if i.isObjectComparison() && { 
@@ -179,7 +159,7 @@ class AbsurdityIdentifier(harnessClassName : String) {
     })
   }
       
-  def getNullDispatchMethods(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
+  def getNullDispatchMethods(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
     case null => Nil
       // collect all non-static invokes in the IR for n whose receiver has an empty points-to set
     case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 
@@ -190,7 +170,7 @@ class AbsurdityIdentifier(harnessClassName : String) {
     })
   }
   
-  def getNullReturnValueMethods(n : CGNode, hm : HeapModel, hg : HeapGraph) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
+  def getNullReturnValueMethods(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
     case null => Nil
       // collect all invokes with non-primitive return values such that the pts-to set of the return value is empty
     case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 

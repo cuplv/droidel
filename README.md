@@ -111,21 +111,6 @@ Contributions
 We welcome contributions to Droidel -- please do not hesitate to report an issue, send a pull request, or ask to be added as a contributor. Send questions and comments about Droidel to samuel.blackshear@colorado.edu.   
 
 
-Eclipse
--------
-To build Droidel in Eclipse, make sure you have installed the SBT Eclipse [plugin](https://github.com/typesafehub/sbteclipse/wiki/Installing-sbteclipse) and add the following two lines to Droidel's build.sbt:
-
-   EclipseKeys.createSrc := EclipseCreateSrc.Default + EclipseCreateSrc.Resource  
-
-   EclipseKeys.withSource := true
-
-Finally, run 
-    
-    sbt eclipse
-
-to generate an Eclipse project.
-
-
 Acknowledgments
 ----------------
 We are indebted to the creators of [FlowDroid](http://sseblog.ec-spride.de/tools/flowdroid/) for both their list of callback classes in the Android framework and their list of lifecycle methods for the core Android lifecycle types (Activity, Service, etc.).

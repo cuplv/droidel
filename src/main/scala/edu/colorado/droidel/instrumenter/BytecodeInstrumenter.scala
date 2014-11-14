@@ -16,7 +16,7 @@ import edu.colorado.droidel.util.Types._
 
 class BytecodeInstrumenter {
   val DEBUG = false
-  val instrumenter = new OfflineInstrumenter()
+  val instrumenter = new OfflineInstrumenter(true)
   
   type ClassName = String
   
