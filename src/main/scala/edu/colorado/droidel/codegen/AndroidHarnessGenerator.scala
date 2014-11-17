@@ -43,13 +43,21 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     val (alloc, freshVar) = inhabitor.mkAssign(viewClass, s"$layoutStubClass.findViewById(-1)")
     initAllocs = alloc :: initAllocs
     inhabitantCache.put(viewClass, freshVar)
-  }  
-  
-  // take framework-allocated types and FieldReference's corresponding to instrumentation variables as input 
+  }
+
+  // generate a harness at the WALA IR level rather than at the source level
+  def generateWalaIRHarness(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
+    manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
+    instrumentedBinDir : String,
+    androidJarPath : String) : String = {
+    sys.error("Unimplemented")
+  }
+
+  // take framework-allocated types and FieldReference's corresponding to instrumentation variables as input
   def generateHarness(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
-                      manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],                         
+                      manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
                       instrumentedBinDir : String,
-                      androidJarPath : String) : String = {   
+                      androidJarPath : String) : String = {
 
     val harnessDir = new File(s"${instrumentedBinDir}/${DroidelConstants.HARNESS_DIR}")
     if (!harnessDir.exists()) harnessDir.mkdir()        

@@ -81,16 +81,24 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
-  private val callbackClasses = {
-    //Pietro: this did not work on my Mac
+  private val callbackClasses =
     Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
-    //Source.fromURL(new File(DroidelConstants.CALLBACK_LIST).toURL())
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
-      set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))   
-  }  
+      set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
 
-  val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))    
-  
+  val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))
+
+  /** @return true if the app has already been processed by Droidel */
+  def isAppDroidelProcessed() : Boolean =
+    // assume the app has been processed if the droidel_classes directory exists
+    new File(s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}").exists()
+
+  /** return the list of manually specified callback classes */
+  def getCallbackClasses() : Set[TypeReference] = callbackClasses
+
+  /** @return true if @param c is a callback class */
+  def isCallbackClass(c : IClass) : Boolean = callbackClasses.contains(c.getReference)
+
   def getApplicationCodeDir(applicationCodePath : String) : Option[File] = new File(applicationCodePath) match {    
     case f if f.exists() && f.isDirectory() => Some(f)
     case f =>
@@ -108,7 +116,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = 
-      if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}" 
+      if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}"
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
     val analysisScope = AnalysisScope.createJavaAnalysisScope()
