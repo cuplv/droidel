@@ -5,13 +5,14 @@ import java.util.EnumSet
 import javax.lang.model.element.Modifier.{PUBLIC, STATIC}
 
 import com.ibm.mobile.droidertemplate.WriterFactory
-import com.ibm.wala.classLoader.{IClass, IMethod}
+import com.ibm.wala.classLoader.{CallSiteReference, IClass, IMethod, NewSiteReference}
 import com.ibm.wala.ipa.cha.IClassHierarchy
+import com.ibm.wala.shrikeBT.IInvokeInstruction
 import com.ibm.wala.ssa.SSAInstruction
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, TypeReference}
 import edu.colorado.droidel.codegen.AndroidHarnessGenerator._
 import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
-import edu.colorado.walautil.{CHAUtil, ClassUtil, JavaUtil, Timer}
+import edu.colorado.walautil._
 
 import scala.collection.JavaConversions._
 
@@ -52,11 +53,69 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     instrumentedBinDir : String,
     androidJarPath : String) : String = {
 
-    frameworkCreatedTypesCallbackMap.keys.foldLeft (List.empty[SSAInstruction]) ((l, c) => {
-      val subs = if (c.isInterface()) cha.getImplementors(c.getReference()) else cha.computeSubClasses(c.getReference())
+    // (instrs, typeCache, currentlyInhabiting, pc, valueNumCounter) tuple
+    type HarnessState = (List[SSAInstruction], Map[IClass, Int], Set[IClass], Int, Int)
+    val emptyHarnessState : HarnessState = (List.empty[SSAInstruction], Map.empty[IClass,Int], Set.empty[IClass], 0, 1)
+    val DUMMY_EXCEPTION = -1
+
+    def inhabitType(t : TypeReference, harnessState : HarnessState) : HarnessState =
+      if (t.isPrimitiveType) sys.error("Unimp: inhabiting primitive type " + t)
+      else if (t.isArrayType) sys.error("Unimp: inhabiting array type " + t)
+      else {
+        val c = cha.lookupClass(t)
+        val postState =
+          inhabitClass(c, (harnessState._1, harnessState._2, harnessState._3 + c, harnessState._4, harnessState._5))
+        // use currentlyInhabiting set from pre-state, everything else from post-state
+        (postState._1, postState._2, harnessState._3, postState._4, postState._5)
+      }
+
+    def inhabitClass(c : IClass, harnessState : HarnessState) : HarnessState = {
+      assert(!c.isAbstract && !c.isInterface, "Trying to inhabit abstract or interface type " + c)
+      assert(!harnessState._2.contains(c), "Already inhabited " + c) // TODO: use type cache value here
+      assert(!harnessState._3.contains(c), "Already inhabiting " + c) // TODO: add workaround for this case
+      val constructors = c.getDeclaredMethods.filter(m => m.isInit)
+      assert(!constructors.isEmpty, "Empty constructors") // TODO: in this case, just do allocation
+      val (newHarnessState, allocNums) =
+      constructors.foldLeft (harnessState, List.empty[Int]) ((pair, constructor) => {
+        val ((instrs, typeCache, currentlyInhabiting, pc, valueNumCounter), allocNums) = pair
+        val allocValueNum = valueNumCounter + 1
+        val allocPc = pc + 1
+        val allocSite = new NewSiteReference(allocPc, c.getReference)
+        // allocate the type and add it to the instructions
+        val newInstrs = IRUtil.factory.NewInstruction(IRUtil.getDummyIndex(), allocValueNum, allocSite) :: instrs
+        val postAllocState = (newInstrs, typeCache, currentlyInhabiting + c, allocPc, allocValueNum)
+        // inhabit all the parameters of the constructor
+        val params = ClassUtil.getNonReceiverParameterTypes(constructor)
+        // TODO: handle primitive types here
+        val postParamsState = params.foldLeft (postAllocState) ((harnessState, t) =>
+          inhabitType(t, (instrs, typeCache, currentlyInhabiting, pc, valueNumCounter)))
+        val retState = {
+          // inhabit the constructor call
+          val (instrs, typeCache, _, pc, valueNumCounter) = postParamsState
+          // call <allocValueNum>.init(params)
+          val paramBindings =
+            (allocValueNum :: params.map(t => if (t.isPrimitiveType) sys.error("Handle primitive types") else typeCache(c))
+                              .toList
+            ).toArray
+          val callPc = pc + 1
+          val callSite = CallSiteReference.make(callPc, constructor.getReference, IInvokeInstruction.Dispatch.SPECIAL)
+          val callInstr = IRUtil.factory.InvokeInstruction(callPc, paramBindings, DUMMY_EXCEPTION, callSite)
+          (callInstr :: instrs, typeCache, currentlyInhabiting, callPc, valueNumCounter)
+        }
+        (retState, allocValueNum :: allocNums)
+      })
       // write val fresh : c = phi(subs)
-      l
-    })
+      val (instrs, typeCache, currentlyInhabiting, pc, valueNumCounter) = newHarnessState
+      val phiValueNum = valueNumCounter + 1
+      val phiPc = pc + 1
+      // create phiValueNum := phi(allocNums) instruction
+      val finalInstrs = IRUtil.factory.PhiInstruction(phiPc, phiValueNum, allocNums.toArray) :: instrs
+      (finalInstrs, typeCache + (c -> phiValueNum), currentlyInhabiting, phiPc, phiValueNum)
+    }
+
+    // allocate each of the framework-created types
+    val harnessState =
+      frameworkCreatedTypesCallbackMap.keys.foldLeft (emptyHarnessState) ((harnessState, c) =>inhabitClass(c, harnessState))
 
     sys.error("Unimplemented")
   }
