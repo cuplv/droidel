@@ -33,7 +33,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                             useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true,
                             cleanupGeneratedFiles : Boolean = true) {
-  require(androidJar.exists(), "Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
+  require(androidJar.exists(), s"Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
   type StubMap = Map[IMethod, TryCreatePatch]
