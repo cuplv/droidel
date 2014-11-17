@@ -2,8 +2,6 @@
  before_install:
    - "wget http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar"
    - "cd lib && ./install_deps.sh"
-   - "git clone https://github.com/cuplv/walautil.git"
-   - "cd walautil && sbt publishLocal && cd ../../"
  script: sbt "test:run android-4.4.2_r1.jar"
  scala:
    - "2.10.2"
