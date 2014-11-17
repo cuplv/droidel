@@ -3,8 +3,8 @@ import edu.colorado.droidel.driver.AndroidAppTransformer
 import edu.colorado.droidel.driver.AndroidCGBuilder
 import edu.colorado.droidel.driver.AbsurdityIdentifier
 import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.droidel.util.Timer
-import edu.colorado.droidel.util.Util
+import edu.colorado.walautil.Timer
+import edu.colorado.walautil.Util
 
 object Regression {
   
