@@ -1,6 +1,6 @@
 package edu.colorado.droidel.parser
 
-import edu.colorado.droidel.util.Util
+import edu.colorado.walautil.Util
 
 abstract class LayoutElement(val typ : String, val declFile : String, val name : String, val id : Option[Int]) {
   protected def opt2str[T](opt : Option[T]) : String = (if (opt.isDefined) " " else "") + opt.getOrElse("")

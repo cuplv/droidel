@@ -2,7 +2,7 @@ package edu.colorado.droidel.preprocessor
 
 import java.io.File
 
-import edu.colorado.droidel.util.JavaUtil
+import edu.colorado.walautil.JavaUtil
 
 import scala.sys.process._
 

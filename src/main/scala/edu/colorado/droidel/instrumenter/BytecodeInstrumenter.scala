@@ -3,15 +3,15 @@ package edu.colorado.droidel.instrumenter
 import java.io.{BufferedWriter, File, OutputStreamWriter}
 
 import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.shrikeBT.MethodEditor.Output
+import com.ibm.wala.shrikeBT.MethodEditor.{Patch, Output}
 import com.ibm.wala.shrikeBT.{Disassembler, DupInstruction, MethodData, MethodEditor, PutInstruction}
 import com.ibm.wala.shrikeBT.analysis.Verifier
 import com.ibm.wala.shrikeBT.shrikeCT.{ClassInstrumenter, OfflineInstrumenter}
 import com.ibm.wala.shrikeCT.{ClassConstants, ClassReader, ClassWriter}
 import com.ibm.wala.shrikeCT.ClassWriter.Element
 import com.ibm.wala.types.FieldReference
-import edu.colorado.droidel.util.ClassUtil
-import edu.colorado.droidel.util.Types._
+import edu.colorado.walautil.ClassUtil
+import edu.colorado.walautil.Types._
 
 
 class BytecodeInstrumenter {

@@ -7,10 +7,11 @@ import javax.lang.model.element.Modifier.{PUBLIC, STATIC}
 import com.ibm.mobile.droidertemplate.WriterFactory
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
+import com.ibm.wala.ssa.SSAInstruction
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, TypeReference}
 import edu.colorado.droidel.codegen.AndroidHarnessGenerator._
 import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
-import edu.colorado.droidel.util.{CHAUtil, ClassUtil, JavaUtil, Timer}
+import edu.colorado.walautil.{CHAUtil, ClassUtil, JavaUtil, Timer}
 
 import scala.collection.JavaConversions._
 
@@ -50,6 +51,13 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
     instrumentedBinDir : String,
     androidJarPath : String) : String = {
+
+    frameworkCreatedTypesCallbackMap.keys.foldLeft (List.empty[SSAInstruction]) ((l, c) => {
+      val subs = if (c.isInterface()) cha.getImplementors(c.getReference()) else cha.computeSubClasses(c.getReference())
+      // write val fresh : c = phi(subs)
+      l
+    })
+
     sys.error("Unimplemented")
   }
 

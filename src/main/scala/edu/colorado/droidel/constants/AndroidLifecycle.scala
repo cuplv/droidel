@@ -4,7 +4,7 @@ import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.types.{ClassLoaderReference, MethodReference, Selector, TypeReference}
 import edu.colorado.droidel.constants.AndroidConstants._
-import edu.colorado.droidel.util.ClassUtil
+import edu.colorado.walautil.ClassUtil
 
 import scala.collection.JavaConversions._
 

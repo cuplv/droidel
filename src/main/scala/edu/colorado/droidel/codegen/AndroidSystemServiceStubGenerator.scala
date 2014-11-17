@@ -3,6 +3,8 @@ package edu.colorado.droidel.codegen
 import java.io.StringWriter
 import com.squareup.javawriter.JavaWriter
 import java.io.File
+import edu.colorado.walautil.ClassUtil
+
 import scala.collection.JavaConversions._
 import edu.colorado.droidel.constants.DroidelConstants._
 import java.util.EnumSet
@@ -10,24 +12,24 @@ import javax.lang.model.element.Modifier.FINAL
 import javax.lang.model.element.Modifier.PRIVATE
 import javax.lang.model.element.Modifier.PUBLIC
 import javax.lang.model.element.Modifier.STATIC
-import edu.colorado.droidel.util.ClassUtil
+import edu.colorado.walautil.ClassUtil
 import com.ibm.wala.types.TypeReference
 import com.ibm.wala.types.ClassLoaderReference
 import com.ibm.wala.ipa.cha.IClassHierarchy
 import java.io.FileWriter
 import AndroidSystemServiceStubGenerator._
-import edu.colorado.droidel.util.JavaUtil
-import edu.colorado.droidel.util.Types._
+import edu.colorado.walautil.JavaUtil
+import edu.colorado.walautil.Types._
 import edu.colorado.droidel.constants.AndroidConstants
 import com.ibm.wala.types.MethodReference
-import com.ibm.wala.shrikeBT.MethodEditor.Output
+import com.ibm.wala.shrikeBT.MethodEditor.{Patch, Output}
 import com.ibm.wala.shrikeBT.PopInstruction
 import com.ibm.wala.shrikeBT.InvokeInstruction
 import com.ibm.wala.shrikeBT.IInvokeInstruction
 import com.ibm.wala.shrikeBT.SwapInstruction
 import com.ibm.wala.ssa.SSAInvokeInstruction
 import com.ibm.wala.ssa.SymbolTable
-import edu.colorado.droidel.util.CHAUtil
+import edu.colorado.walautil.CHAUtil
 import com.ibm.wala.classLoader.IMethod
 import com.ibm.wala.ssa.IR
 

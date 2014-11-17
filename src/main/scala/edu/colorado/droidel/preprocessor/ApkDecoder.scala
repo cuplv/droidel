@@ -1,8 +1,10 @@
 package edu.colorado.droidel.preprocessor
 
 import java.io.File
+
+import edu.colorado.walautil.JavaUtil
+
 import scala.sys.process._
-import edu.colorado.droidel.util.JavaUtil
 
 /** Decode resources from an APK using apktool and decompile the APK using dex2jar or Dare*/
 class ApkDecoder(apkPath : String, droidelHome : String) {

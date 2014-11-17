@@ -6,7 +6,7 @@ import javax.lang.model.SourceVersion
 
 import com.ibm.wala.classLoader.IClass
 import edu.colorado.droidel.parser.LayoutParser._
-import edu.colorado.droidel.util.Util
+import edu.colorado.walautil.Util
 
 import scala.xml.{Node, XML}
 

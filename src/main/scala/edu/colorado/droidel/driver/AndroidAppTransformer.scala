@@ -1,15 +1,12 @@
 package edu.colorado.droidel.driver
 
-// these require Java 7
-//import java.nio.file.Files
-//import java.nio.file.Path
-//import java.nio.file.StandardCopyOption
 import java.io.File
 import java.util.jar.JarFile
 
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisScope
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
+import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen.{AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator}
@@ -18,8 +15,8 @@ import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import edu.colorado.droidel.parser._
 import edu.colorado.droidel.preprocessor.CHAComplementer
-import edu.colorado.droidel.util.Types._
-import edu.colorado.droidel.util.{CHAUtil, ClassUtil, IRUtil, JavaUtil, Timer, Util}
+import edu.colorado.walautil.Types._
+import edu.colorado.walautil.{Timer, Util, JavaUtil, ClassUtil, IRUtil, CHAUtil}
 
 import scala.collection.JavaConversions._
 import scala.io.Source

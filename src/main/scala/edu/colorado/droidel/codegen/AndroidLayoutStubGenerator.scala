@@ -6,7 +6,7 @@ import javax.lang.model.element.Modifier.{FINAL, PRIVATE, PUBLIC, STATIC}
 
 import com.ibm.wala.classLoader.IClass
 import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.shrikeBT.MethodEditor.Output
+import com.ibm.wala.shrikeBT.MethodEditor.{Patch, Output}
 import com.ibm.wala.shrikeBT.{IInvokeInstruction, InvokeInstruction, PopInstruction}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
@@ -16,8 +16,8 @@ import edu.colorado.droidel.constants.AndroidConstants
 import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.parser.{LayoutElement, LayoutFragment, LayoutView}
-import edu.colorado.droidel.util.{ClassUtil, JavaUtil}
-import edu.colorado.droidel.util.Types._
+import edu.colorado.walautil.JavaUtil
+import edu.colorado.walautil.ClassUtil
 
 import scala.collection.JavaConversions._
 

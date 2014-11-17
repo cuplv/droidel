@@ -4,8 +4,8 @@ import com.ibm.wala.classLoader.{IClass, IField, IMethod}
 import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.types.TypeReference
 import edu.colorado.droidel.codegen.TypeInhabitor._
-import edu.colorado.droidel.util.Types._
-import edu.colorado.droidel.util.{ClassUtil, Util}
+import edu.colorado.walautil.Types.MMap
+import edu.colorado.walautil.{ClassUtil, Util}
 
 import scala.collection.JavaConversions._
 

@@ -1,12 +1,10 @@
 package edu.colorado.droidel.codegen
 
-import com.ibm.wala.types.MethodReference
-import edu.colorado.droidel.util.Types._
 import java.io.File
-import com.ibm.wala.ssa.SSAInvokeInstruction
-import com.ibm.wala.ssa.SymbolTable
+
 import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.ssa.IR
+import com.ibm.wala.shrikeBT.MethodEditor.Patch
+import com.ibm.wala.ssa.{IR, SSAInvokeInstruction}
 
 trait AndroidStubGenerator {
   type TryCreatePatch = (SSAInvokeInstruction, IR) => Option[Patch]

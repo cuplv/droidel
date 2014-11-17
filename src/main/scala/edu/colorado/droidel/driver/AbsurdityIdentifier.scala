@@ -9,7 +9,9 @@ import com.ibm.wala.ipa.callgraph.propagation.{HeapModel, InstanceKey, LocalPoin
 import com.ibm.wala.ssa.{IR, SSAConditionalBranchInstruction, SSAGetInstruction, SSAInstruction, SSAInvokeInstruction}
 import com.ibm.wala.types.MethodReference
 import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.droidel.util.{ClassUtil, IRUtil, Util}
+import edu.colorado.walautil.ClassUtil
+import edu.colorado.walautil.Util
+import edu.colorado.walautil.IRUtil
 
 import scala.collection.JavaConversions._
 
