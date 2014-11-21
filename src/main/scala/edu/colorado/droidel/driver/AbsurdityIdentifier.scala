@@ -12,6 +12,7 @@ import edu.colorado.droidel.constants.DroidelConstants
 import edu.colorado.walautil.ClassUtil
 import edu.colorado.walautil.Util
 import edu.colorado.walautil.IRUtil
+import edu.colorado.walautil.WalaAnalysisResults
 
 import scala.collection.JavaConversions._
 

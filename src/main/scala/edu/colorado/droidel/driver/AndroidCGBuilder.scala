@@ -7,6 +7,7 @@ import com.ibm.wala.ipa.callgraph.impl.{ArgumentTypeEntrypoint, ClassHierarchyCl
 import com.ibm.wala.ipa.callgraph.propagation.SSAContextInterpreter
 import com.ibm.wala.ipa.callgraph.propagation.cfa.{ZeroXContainerCFABuilder, ZeroXInstanceKeys}
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
+import edu.colorado.walautil.WalaAnalysisResults
 
 import scala.collection.JavaConversions._
 
