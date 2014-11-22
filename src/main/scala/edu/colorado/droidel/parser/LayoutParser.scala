@@ -247,7 +247,8 @@ class LayoutParser extends AndroidParser {
           map + (NO_CLASS -> layoutElems)
         else
           // associate known and unknown classes with this layout
-          allClasses.foldLeft (map) ((map, layoutClass) => map + (layoutClass -> layoutElems))
+          allClasses.foldLeft (map) ((map, layoutClass) =>
+            map + (layoutClass -> (layoutElems ++ map.getOrElse(layoutClass, Set.empty[LayoutElement]))))
       } else {
         if (DEBUG) println(s"Warning: couldn't find ID for $declFile")
         map
