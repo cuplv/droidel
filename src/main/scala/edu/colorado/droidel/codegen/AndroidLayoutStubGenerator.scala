@@ -2,11 +2,11 @@ package edu.colorado.droidel.codegen
 
 import java.io.{File, FileWriter, StringWriter}
 import java.util.EnumSet
-import javax.lang.model.element.Modifier.{FINAL, PRIVATE, PUBLIC, STATIC}
+import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
 
 import com.ibm.wala.classLoader.IClass
 import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.shrikeBT.MethodEditor.{Patch, Output}
+import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
 import com.ibm.wala.shrikeBT.{IInvokeInstruction, InvokeInstruction, PopInstruction}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
@@ -16,8 +16,7 @@ import edu.colorado.droidel.constants.AndroidConstants
 import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.parser.{LayoutElement, LayoutFragment, LayoutView}
-import edu.colorado.walautil.JavaUtil
-import edu.colorado.walautil.ClassUtil
+import edu.colorado.walautil.{Util, ClassUtil, JavaUtil}
 
 import scala.collection.JavaConversions._
 
@@ -26,20 +25,25 @@ object AndroidLayoutStubGenerator {
   protected val DEBUG = false
 }
 
+class InhabitedLayoutElement(val name : String, val id : Option[Int], val inhabitant : String, val typ : TypeReference)
+
 class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]], 
                                  cha : IClassHierarchy, 
                                  androidJarPath : String, 
-                                 appBinPath : String ) extends AndroidStubGenerator {
+                                 appBinPath : String) extends AndroidStubGenerator {
   // rather than keep track of layouts and view hierarchies, smush them all together into one giant hierarchy
   // this creates complications for things like duplicate id's
-  val SMUSH_VIEWS = true  
+  val SMUSH_VIEWS = true
+
+  private val inhabitedLayoutElems = Util.makeSet[InhabitedLayoutElement]
+  def getInhabitedElems : Iterable[InhabitedLayoutElement] = inhabitedLayoutElems
     
   type LayoutId = Int
   type VarName = String
   type Expression = String
   type Statement = String
 
-  override def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) =
+  def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) =
     if (SMUSH_VIEWS) {
       val (allViews, allFragments) = resourceMap.foldLeft (List.empty[LayoutView], List.empty[LayoutFragment]) ((pair, entry) => {
         entry._2.foldLeft (pair) ((pair, e) => e match {
@@ -101,8 +105,6 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     }     
   }
   
-  class InhabitedLayoutElement(val name : String, val id : Option[Int], val inhabitant : Expression, val typ : TypeReference)
-  
   // generate a Java class with stubs for UI element lookups such as findViewById and findFragmentById
   private def generateWalaStubs(views : Iterable[LayoutView], fragments : Iterable[LayoutFragment], 
                                 stubMap : StubMap, generatedStubs : List[File],
@@ -146,8 +148,10 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
             println(s"Warning: not including ${v.typ} in stubs because $problem")
             pair
           case None =>
-            val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)            
-            (new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType) :: pair._1, allocs)
+            val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
+            val inhabitedElem = new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType)
+            inhabitedLayoutElems += inhabitedElem
+            (inhabitedElem :: pair._1, allocs)
         }        
       })
       
@@ -173,8 +177,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     writer.beginType(stubClassName, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
 
     // emit a field for each statically declared View and Fragment
-    viewFields.foreach(v => writer.emitField(ClassUtil.deWalaifyClassName(v.typ), v.name, EnumSet.of(PRIVATE, STATIC)))
-    fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PRIVATE, STATIC)))
+    viewFields.foreach(v => writer.emitField(ClassUtil.deWalaifyClassName(v.typ), v.name, EnumSet.of(PUBLIC, STATIC)))
+    fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PUBLIC, STATIC)))
     writer.emitEmptyLine()
     
     writer.beginInitializer(true) // begin static

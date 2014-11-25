@@ -3,16 +3,14 @@ package edu.colorado.droidel.driver
 import java.io.{File, PrintWriter}
 
 import com.ibm.wala.analysis.pointers.HeapGraph
-import com.ibm.wala.classLoader.{IBytecodeMethod, IMethod}
-import com.ibm.wala.ipa.callgraph.CGNode
-import com.ibm.wala.ipa.callgraph.propagation.{HeapModel, InstanceKey, LocalPointerKey, PointerKey}
+import com.ibm.wala.classLoader.{IClass, IBytecodeMethod, IMethod}
+import com.ibm.wala.ipa.callgraph.propagation._
+import com.ibm.wala.ipa.callgraph.{CGNode, CallGraph}
+import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.ssa.{IR, SSAConditionalBranchInstruction, SSAGetInstruction, SSAInstruction, SSAInvokeInstruction}
 import com.ibm.wala.types.MethodReference
-import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.walautil.ClassUtil
-import edu.colorado.walautil.Util
-import edu.colorado.walautil.IRUtil
-import edu.colorado.walautil.WalaAnalysisResults
+import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
+import edu.colorado.walautil.{ClassUtil, IRUtil, Util, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
 
@@ -25,7 +23,8 @@ class AbsurdityIdentifier(harnessClassName : String) {
     className.startsWith(s"L${DroidelConstants.HARNESS_DIR}")*/ 
     className == harnessClassName
   } 
-  
+
+  // TODO: factor these out to a PtUtil class in WalaUtil project
   def makeLPK(valueNum : Int, n : CGNode, hm : HeapModel) : LocalPointerKey =
     hm.getPointerKeyForLocal(n, valueNum).asInstanceOf[LocalPointerKey]
   
@@ -39,9 +38,9 @@ class AbsurdityIdentifier(harnessClassName : String) {
   
   def getAbsurdities(walaRes : WalaAnalysisResults, doXmlOutput : Boolean = false) : Iterable[Absurdity] = {
     import walaRes._
-    
-    val methodNodeMap = cg.filter(n => !ClassUtil.isLibrary(n) && !isGeneratedMethod(n.getMethod())).groupBy(n => n.getMethod().getReference())           
-        
+
+    val methodNodeMap = cg.filter(n => !ClassUtil.isLibrary(n) && !isGeneratedMethod(n.getMethod())).groupBy(n => n.getMethod().getReference())
+
     def getAbsurditiesInternal[T](absurdityName : String, 
                                   getAbsurditiesForNode : (CGNode, HeapModel, HeapGraph[InstanceKey]) => Iterable[T],
                                   xmlifyAbsurdity : (T, String, MethodReference) => String) : List[String] = 
@@ -142,6 +141,43 @@ class AbsurdityIdentifier(harnessClassName : String) {
           }
         case _ => DUMMY_NAME
       }
+  }
+
+  def getUncalledMethods(cg : CallGraph, cha : IClassHierarchy) = {
+    val cgMethods = cg.foldLeft (Set.empty[IMethod]) ((s, n) => s + n.getMethod)
+
+    val viewType = ClassUtil.makeTypeRef(AndroidConstants.VIEW_TYPE)
+
+    val viewInnerClasses = ClassUtil.getInnerClasses(cha.lookupClass(viewType), cha)
+
+    val viewClasses = cha.computeSubClasses(viewType).filterNot(c => ClassUtil.isLibrary(c))
+
+    def getUncalledMethods(c : IClass) = c.getAllMethods.filterNot(m => cgMethods.contains(m))
+
+    def getUncalledMethodsSyntactic(c : IClass) = {
+      val allMethods = c.getAllMethods.toSet
+      // get all methods syntactically called in the IR for m, remove them from s
+      allMethods.foldLeft (allMethods) ((s, m) =>
+        cg.getNodes(m.getReference).foldLeft (allMethods) ((s, n) =>
+          if (n.getIR == null) s
+          else
+            n.getIR.getInstructions.foldLeft(allMethods)((s, i) => i match {
+              case i: SSAInvokeInstruction => s - cha.resolveMethod(i.getCallSite.getDeclaredTarget)
+              case _ => s
+            })
+        )
+      )
+    }
+
+    println(s"${cgMethods.size} cg methods")
+
+    viewClasses.foreach(c => {
+      val uncalled = getUncalledMethodsSyntactic(c)
+      println(s"${uncalled.size} uncalled methods for ${ClassUtil.pretty(c)}")
+      val externallyUncalled = uncalled.diff(cgMethods)
+      println(s"${externallyUncalled.size} externally uncalled methods")
+      externallyUncalled.foreach(m => println(ClassUtil.pretty(m)))
+    })
   }
   
   def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = n.getIR match {

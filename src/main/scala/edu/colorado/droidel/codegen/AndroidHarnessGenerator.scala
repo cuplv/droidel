@@ -122,6 +122,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
 
   // take framework-allocated types and FieldReference's corresponding to instrumentation variables as input
   def generateHarness(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
+                      layoutElems : Iterable[InhabitedLayoutElement],
                       manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
                       instrumentedBinDir : String,
                       androidJarPath : String) : String = {
@@ -201,10 +202,11 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
         })
     })    
 
-    // create statements invoking callbacks on each instrumentation variable. note that although an application-allocated object can extend
-    // multiple callback interfaces, we create an instrumentation variable for each CB interface it extends. thus, here it is sufficient to
-    // invoke the callback methods defined on the type of each instrumentation var. To be concrete, here's an example of how we instrument
-    // an application-created type that extends multiple callback interfaces:
+    // create statements invoking callbacks on each instrumentation variable. note that although an
+    // application-allocated object can extend multiple callback interfaces, we create an instrumentation variable for
+    // each CB interface it extends. thus, here it is sufficient to invoke the callback methods defined on the type of
+    // each instrumentation var. To be concrete, here's an example of how we instrument an application-created type that
+    // extends multiple callback interfaces:
     // 
     // class CBObj implements CallbackA, CallbackB
     // ...
@@ -216,13 +218,35 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     // static CallbackA instrumented_CallbackA_1;
     // static CallbackB instrumented_CallbackB_1;
     // main() { instrumented_CallbackA_1.cbA(); instrumented_CallbackB_1.cbB(); }
-    val (instrumentationVarCbCalls, finalAllocStatements) = instrumentationVars.foldLeft (List.empty[Statement], allocStatements2) ((l, v) => 
-      getFrameworkCallbacksOnInterfaceType(CHAUtil.lookupClass(v.getFieldType(), cha)).foldLeft (l) ((l, m) => {
-        val (call, finalAllocStatements) = inhabitor.inhabitFunctionCall(m, Some(v.getName().toString()), cha, l._2)
-        (call :: l._1, finalAllocStatements)
-      })      
-    )   
-    
+    val (instrumentationVarCbCalls, allocStatements3) =
+      instrumentationVars.foldLeft (List.empty[Statement], allocStatements2) ((l, v) =>
+        getFrameworkCallbacksOnInterfaceType(CHAUtil.lookupClass(v.getFieldType(), cha)).foldLeft (l) ((l, m) => {
+          val (call, finalAllocStatements) = inhabitor.inhabitFunctionCall(m, Some(v.getName().toString()), cha, l._2)
+          (call :: l._1, finalAllocStatements)
+        })
+      )
+
+    // TODO: improve this or make a dedicated list!
+    def isEventDisaptch(m : IMethod) : Boolean = {
+      val name = m.getName.toString
+      name.startsWith("dispatch") || name.startsWith("perform")
+    }
+
+    // allocate calls to event dispatch callbacks
+    val (eventDispatchCbCalls, finalAllocStatements) =
+      layoutElems.foldLeft (List.empty[Statement], allocStatements3) ((l, e) => cha.lookupClass(e.typ) match {
+        case null => l
+        case clazz =>
+          clazz.getAllMethods.foldLeft (l) ((l, m) =>
+            if (m.isPublic && isEventDisaptch(m)) {
+              val (call, allocs) =
+                inhabitor.inhabitFunctionCall(m, Some(s"${DroidelConstants.STUB_DIR}.${DroidelConstants.LAYOUT_STUB_CLASS}.${e.name}"),
+                                              cha, l._2)
+              (call :: l._1, allocs)
+            } else l
+          )
+      })
+
     val strWriter = new StringWriter
     
     val harnessWriter = WriterFactory.factory(strWriter);
@@ -252,7 +276,9 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     frameworkCreatedInterfaceCbCalls.foreach(invoke => harnessWriter.emitCallToComponent(invoke))
     // emit instrumentation var callback invocations
     instrumentationVarCbCalls.foreach(invoke => harnessWriter.emitCallToComponent(invoke))
-    
+    // emit event dispatch callbacks on View's and Fragment's
+    eventDispatchCbCalls.foreach(invoke => harnessWriter.emitCallToComponent(invoke))
+
     harnessWriter.endCallToComponent;
     
     harnessWriter.emitEndHarness();

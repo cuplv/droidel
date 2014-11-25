@@ -9,14 +9,13 @@ import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
-import edu.colorado.droidel.codegen.{AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator}
+import edu.colorado.droidel.codegen.{InhabitedLayoutElement, AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator}
 import edu.colorado.droidel.constants.{AndroidLifecycle, DroidelConstants}
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import edu.colorado.droidel.parser._
 import edu.colorado.droidel.preprocessor.CHAComplementer
-import edu.colorado.walautil.Types._
-import edu.colorado.walautil.{Timer, Util, JavaUtil, ClassUtil, IRUtil, CHAUtil}
+import edu.colorado.walautil.{CHAUtil, ClassUtil, IRUtil, JavaUtil, Timer, Util}
 
 import scala.collection.JavaConversions._
 import scala.io.Source
@@ -110,7 +109,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
   
   // load Android libraries/our stubs in addition to the normal analysis scope loading 
-  def makeAnalysisScope(useHarness : Boolean = false) : AnalysisScope = {    
+  def makeAnalysisScope(useHarness : Boolean) : AnalysisScope = {
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = 
       if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}"
@@ -369,9 +368,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     (originalJar, instrFlds)
   }
   
-  private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy, manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
-      stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], 
-      stubPaths : Iterable[File]) : Unit = {
+  private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy,
+                                                  manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
+                                                  layoutElems : Iterable[InhabitedLayoutElement],
+                                                  stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
+                                                  stubPaths : Iterable[File]) : Unit = {
     
     // make a map from framework class -> set of application classes implementing framework class)
     // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
@@ -441,8 +442,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     timer.printTimeTaken("Performing bytecode instrumentation")
 
     println("Generating harness")
-    generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap,
-                                              manifestDeclaredCallbackMap, instrumentationFields, stubPaths, instrumentedJar, cha)
+    generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
+                                            instrumentationFields, stubPaths, instrumentedJar, cha)
     timer.printTimeTaken("Generating and compiling harness")
 
     // no need to keep the JAR; we have an output directory containing these files
@@ -450,6 +451,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
   
   private def generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
+                                                      layoutElems : Iterable[InhabitedLayoutElement],
                                                       manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
                                                       instrumentationFields : Iterable[FieldReference],   
                                                       stubPaths : Iterable[File],
@@ -467,7 +469,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
     val harnessGen = new AndroidHarnessGenerator(cha, instrumentationFields)
     harnessGen.makeSpecializedViewInhabitantCache(stubPaths)
-    harnessGen.generateHarness(frameworkCreatedTypesCallbackMap, manifestDeclaredCallbackMap, instrumentedBinDirPath, androidJar.getAbsolutePath())              
+    harnessGen.generateHarness(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
+                               instrumentedBinDirPath, androidJar.getAbsolutePath())
 
     // TODO: just compile them in the right place instead of moving?
     // move stubs in with the apps
@@ -479,13 +482,15 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     instrumentedBinDir
   }
 
-  def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) : (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
-                                                                                          List[File]) = {
+  def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) :
+    (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], Iterable[InhabitedLayoutElement], List[File]) = {
     println("Generating stubs")
-    val (stubMap, generatedStubs) = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath(), appBinPath).generateStubs()
-    val res = new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
+    val layoutStubGenerator = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath(), appBinPath)
+    val (stubMap, generatedStubs) = layoutStubGenerator.generateStubs()
+    val (finalStubMap, stubPaths) =
+      new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
     timer.printTimeTaken("Generating and compiling stubs")
-    res
+    (finalStubMap, layoutStubGenerator.getInhabitedElems, stubPaths)
   }
 
   def parseLayout(cha : IClassHierarchy) : (Map[IClass,Set[LayoutElement]], Map[IClass,Set[IMethod]]) = {
@@ -503,15 +508,14 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   def transformApp() : Unit = {
     println(s"Transforming $appPath")
     // create class hierarchy from app
-    val analysisScope = makeAnalysisScope()
+    val analysisScope = makeAnalysisScope(useHarness = false)
     val cha = ClassHierarchy.make(analysisScope)
     // parse app layout
     val (layoutMap, manifestDeclaredCallbackMap) = parseLayout(cha)
     // generate app-specialized stubs
-    val (specializedLayoutGettersMap, stubPaths) = generateStubs(layoutMap, cha)       
-    //val specializedLayoutTypeCreationMap = makeSpecializedLayoutTypeCreationMap(stubPaths)
+    val (stubMap, inhabitedLayoutElems, stubPaths) = generateStubs(layoutMap, cha)
     // inject the stubs via bytecode instrumentation and generate app-specialized harness
-    doInstrumentationAndGenerateHarness(cha, manifestDeclaredCallbackMap, specializedLayoutGettersMap, stubPaths)
+    doInstrumentationAndGenerateHarness(cha, manifestDeclaredCallbackMap, inhabitedLayoutElems, stubMap, stubPaths)
 
     // cleanup generated stub and harness source files
     if (cleanupGeneratedFiles) {

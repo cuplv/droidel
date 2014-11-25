@@ -73,6 +73,7 @@ object Main {
       val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
                                                   useJPhantom = !noJphantom,
                                                   instrumentLibs = !noInstrument)
+
       transformer.transformApp()
     }
   }
