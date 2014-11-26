@@ -9,7 +9,7 @@ import com.ibm.wala.ipa.callgraph.{CGNode, CallGraph}
 import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.ssa.{IR, SSAConditionalBranchInstruction, SSAGetInstruction, SSAInstruction, SSAInvokeInstruction}
 import com.ibm.wala.types.MethodReference
-import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
+import edu.colorado.droidel.constants.DroidelConstants
 import edu.colorado.walautil.{ClassUtil, IRUtil, Util, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
@@ -143,43 +143,30 @@ class AbsurdityIdentifier(harnessClassName : String) {
       }
   }
 
-  def getUncalledMethods(cg : CallGraph, cha : IClassHierarchy) = {
+  def getUncalledMethods(cg : CallGraph, cha : IClassHierarchy) : Set[IMethod] = {
     val cgMethods = cg.foldLeft (Set.empty[IMethod]) ((s, n) => s + n.getMethod)
-
-    val viewType = ClassUtil.makeTypeRef(AndroidConstants.VIEW_TYPE)
-
-    val viewInnerClasses = ClassUtil.getInnerClasses(cha.lookupClass(viewType), cha)
-
-    val viewClasses = cha.computeSubClasses(viewType).filterNot(c => ClassUtil.isLibrary(c))
-
-    def getUncalledMethods(c : IClass) = c.getAllMethods.filterNot(m => cgMethods.contains(m))
-
-    def getUncalledMethodsSyntactic(c : IClass) = {
-      val allMethods = c.getAllMethods.toSet
-      // get all methods syntactically called in the IR for m, remove them from s
-      allMethods.foldLeft (allMethods) ((s, m) =>
-        cg.getNodes(m.getReference).foldLeft (allMethods) ((s, n) =>
-          if (n.getIR == null) s
-          else
-            n.getIR.getInstructions.foldLeft(allMethods)((s, i) => i match {
-              case i: SSAInvokeInstruction => s - cha.resolveMethod(i.getCallSite.getDeclaredTarget)
-              case _ => s
-            })
-        )
-      )
-    }
-
-    println(s"${cgMethods.size} cg methods")
-
-    viewClasses.foreach(c => {
-      val uncalled = getUncalledMethodsSyntactic(c)
-      println(s"${uncalled.size} uncalled methods for ${ClassUtil.pretty(c)}")
-      val externallyUncalled = uncalled.diff(cgMethods)
-      println(s"${externallyUncalled.size} externally uncalled methods")
-      externallyUncalled.foreach(m => println(ClassUtil.pretty(m)))
-    })
+    cha.foldLeft (Set.empty[IMethod]) ((s, c) =>
+      if (!ClassUtil.isLibrary(c)) c.getAllMethods.foldLeft (s) ((s, m) => if (cgMethods.contains(m)) s else s + m)
+      else s
+    )
   }
-  
+
+  /** return the set of methods for @param c that are not syntactically called by other methods of @param c */
+  def getNonSyntacticallyCalledMethods(c : IClass, cg : CallGraph, cha : IClassHierarchy) = {
+    val allMethods = c.getAllMethods.toSet
+    // get all methods syntactically called in the IR for m, remove them from s
+    allMethods.foldLeft (allMethods) ((s, m) =>
+      cg.getNodes(m.getReference).foldLeft (allMethods) ((s, n) =>
+        if (n.getIR == null) s
+        else
+          n.getIR.getInstructions.foldLeft(allMethods)((s, i) => i match {
+            case i: SSAInvokeInstruction => s - cha.resolveMethod(i.getCallSite.getDeclaredTarget)
+            case _ => s
+          })
+      )
+    )
+  }
+
   def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = n.getIR match {
     case null => Nil
     case ir => ir.getInstructions().toIterable.zipWithIndex.collect({
