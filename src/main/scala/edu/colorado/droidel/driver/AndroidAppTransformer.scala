@@ -258,7 +258,15 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
 
     def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
-         
+
+    // map from classes to sets of callback classes they extend
+    val cbImplMap =
+      callbackClasses.foldLeft (Map.empty[IClass,List[IClass]]) ((m, t) => cha.lookupClass(t) match {
+        case null => m
+        case cbClass =>
+          cha.computeSubClasses(t).foldLeft (m) ((m, c) => m + (c -> (cbClass :: m.getOrElse(c, List.empty[IClass]))))
+      })
+
     // look for application-created callback types by iterating through the class hierarchy instead of the methods in the callgraph.
     // this has pros and cons:
     // pro: iterating over the class hierarchy in a single pass is sound, whereas if we were iterating over the callgraph we would
@@ -281,13 +289,12 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                   cha.lookupClass(i.getConcreteType()) match {
                     case null => l
                     case clazz =>
-                      // TODO: use callback finding class here
-                      val cbImpls = clazz.getAllImplementedInterfaces().filter(i => callbackClasses.contains(i.getReference())).toList
-                      if (cbImpls.isEmpty) l 
-                      else {
-                        if (DEBUG)
-                          println(s"Instrumenting allocation of ${ClassUtil.pretty(i.getConcreteType())} in method ${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
-                        ((pair._2, cbImpls) :: l._1, l._2)
+                      cbImplMap.get(clazz) match {
+                        case None => l
+                        case Some(cbImpls) =>
+                          if (DEBUG)
+                            println(s"Instrumenting allocation of ${ClassUtil.pretty(i.getConcreteType())} in method${ClassUtil.pretty(m)} at source line ${IRUtil.getSourceLine(i, ir)}")
+                          ((pair._2, cbImpls) :: l._1, l._2)
                       }
                   }                
                 case i : SSAInvokeInstruction if patchMap.contains(cha.resolveMethod(i.getDeclaredTarget())) => 
