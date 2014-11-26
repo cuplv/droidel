@@ -107,6 +107,7 @@ android.security.KeyChainAliasCallback
 android.speech.RecognitionListener
 android.speech.tts.TextToSpeech$OnInitListener
 android.speech.tts.TextToSpeech$OnUtteranceCompletedListener
+android.text.TextWatcher
 android.view.ActionMode$Callback
 android.view.ActionProvider$VisibilityListener
 android.view.GestureDetector$OnDoubleTapListener
