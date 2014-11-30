@@ -3,15 +3,14 @@ package edu.colorado.droidel.instrumenter
 import java.io.{BufferedWriter, File, OutputStreamWriter}
 
 import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.shrikeBT.MethodEditor.{Patch, Output}
-import com.ibm.wala.shrikeBT.{Disassembler, DupInstruction, MethodData, MethodEditor, PutInstruction}
+import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
 import com.ibm.wala.shrikeBT.analysis.Verifier
 import com.ibm.wala.shrikeBT.shrikeCT.{ClassInstrumenter, OfflineInstrumenter}
-import com.ibm.wala.shrikeCT.{ClassConstants, ClassReader, ClassWriter}
+import com.ibm.wala.shrikeBT.{Disassembler, DupInstruction, MethodData, MethodEditor, PutInstruction}
 import com.ibm.wala.shrikeCT.ClassWriter.Element
+import com.ibm.wala.shrikeCT.{ClassConstants, ClassReader, ClassWriter}
 import com.ibm.wala.types.FieldReference
 import edu.colorado.walautil.ClassUtil
-import edu.colorado.walautil.Types._
 
 
 class BytecodeInstrumenter {
@@ -38,7 +37,6 @@ class BytecodeInstrumenter {
     def instrumentRec() : Unit = instrumenter.nextClass() match {
       case null => ()
       case curClass =>
-        //val className = curClass.getInputName() // deprecated in more recent versions of WALA
         val className = s"${curClass.getReader().getName()}.class"
         val toInstrument = instrumentationMap.getOrElse(className, Map.empty[IMethod, Iterable[(Int, Iterable[FieldReference])]])
         val toStub = stubMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, Patch)]])
@@ -126,12 +124,6 @@ class BytecodeInstrumenter {
         case None => List.empty[T]
       }
     }
-    
-    def getInstrumentation(methodData : MethodData) : Option[Iterable[(Int, Iterable[FieldReference])]] = 
-      getMethod(methodData, toInstrument.keys) match {
-        case Some(m) => Some(toInstrument(m))
-        case None => None
-    }      
       
     val makePublicNums = (0 to ci.getReader().getMethodCount() - 1).foldLeft (Set.empty[Int]) ((makePublicNums, i) => {
       ci.visitMethod(i) match { // for each method in the bytecode class
@@ -170,21 +162,7 @@ class BytecodeInstrumenter {
             ))
             
             // transform calls to findViewById/findFragmentById with a constant first argument to view-specialized stubs
-            stubsTodo.foreach(pair => methodEditor.replaceWith(pair._1, pair._2)
-              /*methodEditor.replaceWith(pair._1, new MethodEditor.Patch() {
-                override def emitTo(o : Output) : Unit = {
-                  if (DEBUG) println("Instrumenting call to stub")
-                  val m = pair._2
-                  o.emit(PopInstruction.make(1)) // pop the constant passed to findViewById/findFragmentById off the stack
-                  o.emit(PopInstruction.make(1)) // pop the receiver of findViewById/findFragmentById off the stack
-                  val methodClass = typeRefToBytecodeType(m.getDeclaringClass())
-                  o.emit(InvokeInstruction.make(m.getDescriptor().toString(), 
-                                                methodClass,
-                                                m.getName().toString(), 
-                                                IInvokeInstruction.Dispatch.STATIC))
-                }
-              })*/
-            )
+            stubsTodo.foreach(pair => methodEditor.replaceWith(pair._1, pair._2))
                               
             methodEditor.applyPatches() // commit the changes
               

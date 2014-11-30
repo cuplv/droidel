@@ -264,7 +264,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       callbackClasses.foldLeft (Map.empty[IClass,List[IClass]]) ((m, t) => cha.lookupClass(t) match {
         case null => m
         case cbClass =>
-          cha.computeSubClasses(t).foldLeft (m) ((m, c) => m + (c -> (cbClass :: m.getOrElse(c, List.empty[IClass]))))
+          (cha.computeSubClasses(t) ++ cha.getImplementors(t)).foldLeft (m) ((m, c) =>
+            m + (c -> (cbClass :: m.getOrElse(c, List.empty[IClass]))))
       })
 
     // look for application-created callback types by iterating through the class hierarchy instead of the methods in the callgraph.

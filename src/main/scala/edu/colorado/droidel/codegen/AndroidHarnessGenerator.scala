@@ -144,10 +144,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     })        
         
     // TODO: do something smarter here too -- use our hardcoded list of callback classes and callback methods within those classes
-    def getFrameworkCallbacksOnInterfaceType(interfaceType : IClass) : Iterable[IMethod] = {
-      require(interfaceType.isInterface())
-      interfaceType.getDeclaredMethods().filter(m => m.isPublic())
-    }    
+    def getCallbacksOnType(typ : IClass) : Iterable[IMethod] = typ.getDeclaredMethods().filter(m => !m.isInit && !m.isClinit && m.isPublic())
     
     // create statements invoking all lifecycle and manifest-defined callbacks on each of our framework-created types
     val (frameworkCreatedCbCalls, allocStatements1) = frameworkCreatedTypesCallbackMap.foldLeft (List.empty[Statement],allocStatements) ((l, entry) => {
@@ -220,7 +217,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     // main() { instrumented_CallbackA_1.cbA(); instrumented_CallbackB_1.cbB(); }
     val (instrumentationVarCbCalls, allocStatements3) =
       instrumentationVars.foldLeft (List.empty[Statement], allocStatements2) ((l, v) =>
-        getFrameworkCallbacksOnInterfaceType(CHAUtil.lookupClass(v.getFieldType(), cha)).foldLeft (l) ((l, m) => {
+        getCallbacksOnType(CHAUtil.lookupClass(v.getFieldType(), cha)).foldLeft (l) ((l, m) => {
           val (call, finalAllocStatements) = inhabitor.inhabitFunctionCall(m, Some(v.getName().toString()), cha, l._2)
           (call :: l._1, finalAllocStatements)
         })
