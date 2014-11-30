@@ -20,7 +20,7 @@ object Main {
                     s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false))
     
     def printUsage() : Unit = {
-      println(s"Usage: ./droidel.sh -$APP <path_to_app> -$ANDROID_JAR <path_to_jar> [flags]")
+      println(s"Usage: ./droidel.sh $APP <path_to_app> $ANDROID_JAR <path_to_jar> [flags]")
       println("Options:")
       opts.foreach(entry => println(s"${entry._1}\t${entry._2}"))
       flags.foreach(entry => println(s"${entry._1}\t${entry._2._1}  default: ${entry._2._2}"))

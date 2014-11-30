@@ -8,9 +8,9 @@ scalaVersion := "2.10.2"
 
 offline := true
 
-resolvers += "Local Maven Repository" at "file:///"+Path.userHome.absolutePath+"/.m2/repository"
-
-resolvers += "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots"
+resolvers ++= Seq(
+	  "Local Maven Repository" at "file:///"+Path.userHome.absolutePath+"/.m2/repository",
+	  "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
 
 libraryDependencies ++= Seq(
         "University of Colorado Boulder" %% "walautil" % "0.1-SNAPSHOT",

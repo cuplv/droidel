@@ -9,6 +9,7 @@ import scala.sys.process._
 /** Decode resources from an APK using apktool and decompile the APK using dex2jar or Dare*/
 class ApkDecoder(apkPath : String, droidelHome : String) {
   val APKTOOL_JAR = s"$droidelHome/lib/apktool/apktool.jar"
+  val DEX2JAR = s"$droidelHome/lib/dex2jar/d2j-dex2jar.sh"
   val apkName = apkPath.stripSuffix(".apk")
   val apk = new File(apkPath)
   assert(apk.isFile() && apk.getName().endsWith(".apk"))
@@ -30,20 +31,22 @@ class ApkDecoder(apkPath : String, droidelHome : String) {
   }
   
   def decompile() : File = {
-    // TODO: app support for using Dare instead    
+    // TODO: support for using Dare instead
+    val DEX2JAR_SUFFIX = "_dex2jar.jar"
+    val dex2jarOut = new File(s"$apkName$DEX2JAR_SUFFIX")
     try {
       println("Running dex2jar")
-      com.googlecode.dex2jar.v3.Main.doFile(apk)
+      val cmd = s"$DEX2JAR $apk -o ${dex2jarOut.getAbsolutePath}"
+      val output = cmd.!!
+      println(output)
     } catch {
       case e : Throwable =>
         println(s"Error running dex2jar: $e. Exiting")
         sys.exit
     }
-    
-    val DEX2JAR_SUFFIX = "_dex2jar.jar"
-    val dex2jarOutput = new File(s"$apkName$DEX2JAR_SUFFIX")
-    assert(dex2jarOutput.exists(), s"Dex2jar failed to produce expected output file ${dex2jarOutput.getAbsolutePath()}")
-    dex2jarOutput
+
+    assert(dex2jarOut.exists(), s"Dex2jar failed to produce expected output file ${dex2jarOut.getAbsolutePath()}")
+    dex2jarOut
   }
   
   def decodeResources(apkFile : File, apkToolOutputDir : File) : File = {
