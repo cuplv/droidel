@@ -540,7 +540,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   def getWALAStubs : Option[File] = {
-    val f = new File("config/primordial.jar.model")
+    val f = new File(s"${droidelHome}/config/primordial.jar.model")
     if (f.exists()) Some(f) else None
   }
     
