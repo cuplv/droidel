@@ -25,7 +25,9 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
   type Expression = String
   type Statement = String
   type VarName = String  
-  
+
+  // turning this off until we understand what to do better
+  val HANDLE_EVENT_DISPATCH = false // TODO: fix and turn on
   val inhabitor = new TypeInhabitor
   val inhabitantCache = inhabitor.inhabitantCache
   
@@ -231,7 +233,8 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
 
     // allocate calls to event dispatch callbacks
     val (eventDispatchCbCalls, finalAllocStatements) =
-      layoutElems.foldLeft (List.empty[Statement], allocStatements3) ((l, e) => cha.lookupClass(e.typ) match {
+      if (!HANDLE_EVENT_DISPATCH) (List.empty[Statement], allocStatements3)
+      else layoutElems.foldLeft (List.empty[Statement], allocStatements3) ((l, e) => cha.lookupClass(e.typ) match {
         case null => l
         case clazz =>
           clazz.getAllMethods.foldLeft (l) ((l, m) =>

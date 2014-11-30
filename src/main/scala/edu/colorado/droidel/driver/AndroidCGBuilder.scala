@@ -2,16 +2,17 @@ package edu.colorado.droidel.driver
 
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisOptions.ReflectionOptions
-import com.ibm.wala.ipa.callgraph.{AnalysisCache, AnalysisOptions, AnalysisScope, CallGraphBuilder, ClassTargetSelector, ContextSelector, Entrypoint, MethodTargetSelector}
 import com.ibm.wala.ipa.callgraph.impl.{ArgumentTypeEntrypoint, ClassHierarchyClassTargetSelector, ClassHierarchyMethodTargetSelector}
 import com.ibm.wala.ipa.callgraph.propagation.SSAContextInterpreter
 import com.ibm.wala.ipa.callgraph.propagation.cfa.{ZeroXContainerCFABuilder, ZeroXInstanceKeys}
+import com.ibm.wala.ipa.callgraph.{AnalysisCache, AnalysisOptions, AnalysisScope, CallGraphBuilder, ClassTargetSelector, ContextSelector, Entrypoint, MethodTargetSelector}
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
+import edu.colorado.droidel.constants.DroidelConstants
 import edu.colorado.walautil.WalaAnalysisResults
 
 import scala.collection.JavaConversions._
 
-class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, harnessMethod : String) {       
+class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, harnessMethod : String) {
   
   val cha = ClassHierarchy.make(analysisScope)    
   
@@ -69,7 +70,7 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, har
   def makeClassTargetSelector() : ClassTargetSelector =new ClassHierarchyClassTargetSelector(cha)  
   
   def addBypassLogic(options : AnalysisOptions, analysisScope : AnalysisScope, cha : IClassHierarchy) : Unit = {
-    com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec("config/natives.xml")
+    com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec(s"${DroidelConstants.DROIDEL_HOME}/config/natives.xml")
     com.ibm.wala.ipa.callgraph.impl.Util.addDefaultBypassLogic(options, analysisScope, classOf[com.ibm.wala.ipa.callgraph.impl.Util].getClassLoader(), cha)
   }
 }

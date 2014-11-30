@@ -9,7 +9,7 @@ import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
-import edu.colorado.droidel.codegen.{InhabitedLayoutElement, AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator}
+import edu.colorado.droidel.codegen.{AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator, InhabitedLayoutElement}
 import edu.colorado.droidel.constants.{AndroidLifecycle, DroidelConstants}
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
@@ -33,7 +33,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
   type StubMap = Map[IMethod, TryCreatePatch]
-  
+
+  DroidelConstants.DROIDEL_HOME = droidelHome
   val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
   val harnessMethodName = DroidelConstants.HARNESS_MAIN  
   
@@ -540,7 +541,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   def getWALAStubs : Option[File] = {
-    val f = new File(s"${droidelHome}/config/primordial.jar.model")
+    val f = new File(s"${DroidelConstants.DROIDEL_HOME}/config/primordial.jar.model")
     if (f.exists()) Some(f) else None
   }
     

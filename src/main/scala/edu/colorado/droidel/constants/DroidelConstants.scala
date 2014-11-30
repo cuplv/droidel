@@ -5,6 +5,7 @@ import com.ibm.wala.types.ClassLoaderReference
 import java.io.File
 
 object DroidelConstants {
+  var DROIDEL_HOME = "."
   // path to list of special callback interface classes
   val CALLBACK_LIST = "AndroidCallbacks.txt"
   // path to libraries in canonical layout of Android project

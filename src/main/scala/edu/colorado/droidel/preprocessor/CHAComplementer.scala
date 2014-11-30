@@ -12,7 +12,6 @@ import scala.sys.process._
 class CHAComplementer(appJar : File, droidelHome : String, libJars : List[File], jPhantomOutDir : File) {
   
   def complement() : Boolean = {
-//    val JPHANTOM_JAR = "jphantom/build/jar/jphantom.jar"
     val JPHANTOM_JAR = s"$droidelHome/lib/jphantom/build/jar/jphantom.jar"
     assert(new File(JPHANTOM_JAR).exists(), s"Can't find JPhantom; expecting the JAR at $JPHANTOM_JAR")
     // path to script that runs JPhantom
@@ -52,11 +51,9 @@ class CHAComplementer(appJar : File, droidelHome : String, libJars : List[File],
     } catch {
       case e : Throwable => 
         println(s"JPhantom failed: $e. Continuing")
-        // JPhantom didn't work. fail gracefully by
-        // extracting the input JAR in the JPhantom directory and moving on
+        // JPhantom didn't work. fail gracefully by extracting the input JAR in the JPhantom directory and moving on
         JavaUtil.extractJar(new File(jPhantomIn), jPhantomOutDir.getAbsolutePath())
         true
-        //false
     }    
    
     // delete the input JAR to JPhantom that we created
