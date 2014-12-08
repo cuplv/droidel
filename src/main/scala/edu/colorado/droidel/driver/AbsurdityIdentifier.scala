@@ -36,10 +36,14 @@ class AbsurdityIdentifier(harnessClassName : String) {
   
   type Absurdity = String
   
-  def getAbsurdities(walaRes : WalaAnalysisResults, doXmlOutput : Boolean = false) : Iterable[Absurdity] = {
+  def getAbsurdities(walaRes : WalaAnalysisResults, reportLibraryAbsurdities : Boolean = false,
+                     doXmlOutput : Boolean = false) : Iterable[Absurdity] = {
     import walaRes._
 
-    val methodNodeMap = cg.filter(n => !ClassUtil.isLibrary(n) && !isGeneratedMethod(n.getMethod())).groupBy(n => n.getMethod().getReference())
+    val methodNodeMap =
+      cg.filter(n => (reportLibraryAbsurdities || !ClassUtil.isLibrary(n)) &&
+                     !isGeneratedMethod(n.getMethod()))
+      .groupBy(n => n.getMethod().getReference())
 
     def getAbsurditiesInternal[T](absurdityName : String, 
                                   getAbsurditiesForNode : (CGNode, HeapModel, HeapGraph[InstanceKey]) => Iterable[T],
@@ -117,7 +121,11 @@ class AbsurdityIdentifier(harnessClassName : String) {
   }    
     
   def getBytecodeIndexAndSourceLine(i : SSAInstruction, n : CGNode, index : Int) : (BytecodeIndex,SourceLine) = {
-    val bcIndex = n.getMethod().asInstanceOf[IBytecodeMethod].getBytecodeIndex(index) 
+    val bcIndex =
+      n.getMethod() match {
+        case m :IBytecodeMethod => m.getBytecodeIndex(index)
+        case _ => -1
+    }
     val srcLine = IRUtil.getSourceLine(i, n.getIR())
     (bcIndex, srcLine)
   }

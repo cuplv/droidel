@@ -418,7 +418,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
          if (DEBUG) sys.error("Likely unsoundness, exiting")
        }
     })
-      
+
     // make a map fron application class -> set of lifecyle and manifest-declared callbacks on application class (+ all on* methods)
     // not that this map does *not* contain callbacks from implementing additional callback interfaces -- these are discovered
     // in the harness generator.
