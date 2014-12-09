@@ -10,7 +10,9 @@ import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen._
-import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle, DroidelConstants}
+import edu.colorado.droidel.constants.AndroidConstants._
+import edu.colorado.droidel.constants.AndroidLifecycle
+import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import edu.colorado.droidel.parser._
@@ -34,15 +36,15 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
   type StubMap = Map[IMethod, TryCreatePatch]
 
-  DroidelConstants.DROIDEL_HOME = droidelHome
-  val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
-  val harnessMethodName = DroidelConstants.HARNESS_MAIN  
+  DROIDEL_HOME = droidelHome
+  val harnessClassName = s"L${HARNESS_DIR}${File.separator}${HARNESS_CLASS}"
+  val harnessMethodName = HARNESS_MAIN  
   
   private val appPath = if (_appPath.endsWith(File.separator)) _appPath else s"${_appPath}${File.separator}" 
 
   private val libJars = {     
     // load libraries in "the libs" directory if they exist
-    val libsDir = new File(s"${appPath}${DroidelConstants.LIB_SUFFIX}")
+    val libsDir = new File(s"${appPath}${LIB_SUFFIX}")
     if (libsDir.exists) libsDir.listFiles().toList.map(f => {
       // TODO: only expecting JAR files here -- be more robust
       assert(f.getName().endsWith(".jar"), s"Unexpected kind of input lib file $f")
@@ -50,12 +52,12 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     }) else List.empty[File]
   }
   
-  val unprocessedBinPath = s"${appPath}${DroidelConstants.BIN_SUFFIX}"
+  val unprocessedBinPath = s"${appPath}${BIN_SUFFIX}"
   private val appBinPath = { // path to the bytecodes for the app       
     if (useJPhantom) {
       // check for bytecodes that have been processed with JPhantom and use them
       // if they exist. otherwise, create them
-      val jPhantomizedBinPath = s"${appPath}${DroidelConstants.JPHANTOMIZED_BIN_SUFFIX}"
+      val jPhantomizedBinPath = s"${appPath}${JPHANTOMIZED_BIN_SUFFIX}"
       val jPhantomizedBinDir = new File(jPhantomizedBinPath)
       if (jPhantomizedBinDir.exists() && jPhantomizedBinDir.list().length != 0) {
         println("Found JPhantom-processed bytecodes--using them")
@@ -79,7 +81,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses =
-    Source.fromURL(getClass.getResource(s"/${DroidelConstants.CALLBACK_LIST}"))
+    Source.fromURL(getClass.getResource(s"/${CALLBACK_LIST}"))
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
 
@@ -88,7 +90,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   /** @return true if the app has already been processed by Droidel */
   def isAppDroidelProcessed() : Boolean =
     // assume the app has been processed if the droidel_classes directory exists
-    new File(s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}").exists()
+    new File(s"${appPath}${DROIDEL_BIN_SUFFIX}").exists()
 
   /** return the list of manually specified callback classes */
   def getCallbackClasses() : Set[TypeReference] = callbackClasses
@@ -113,7 +115,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   def makeAnalysisScope(useHarness : Boolean) : AnalysisScope = {
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
     val binPath = 
-      if (useHarness) s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}"
+      if (useHarness) s"${appPath}${DROIDEL_BIN_SUFFIX}"
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
     val analysisScope = AnalysisScope.createJavaAnalysisScope()
@@ -124,7 +126,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       Some(f)
     } else None
     
-    val layoutStubFilePath = List(binPath, DroidelConstants.STUB_DIR, s"${DroidelConstants.LAYOUT_STUB_CLASS}.class").mkString(File.separator)
+    val layoutStubFilePath = List(binPath, STUB_DIR, s"${LAYOUT_STUB_CLASS}.class").mkString(File.separator)
    
     val manifestUsedActivitiesAndApplications = manifest.entries.foldLeft (Set.empty[String]) ((s, a) => 
       s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
@@ -256,7 +258,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     var dummyID = 0
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
-    val harnessClassName = s"L${DroidelConstants.HARNESS_DIR}${File.separator}${DroidelConstants.HARNESS_CLASS}"
+    val harnessClassName = s"L${HARNESS_DIR}${File.separator}${HARNESS_CLASS}"
 
     def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
 
@@ -465,7 +467,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                                                       instrumentedJar : File, cha : IClassHierarchy) : File = {  
     
     // create fresh directory for instrumented bytecodes
-    val instrumentedBinDirPath = s"${appPath}${DroidelConstants.DROIDEL_BIN_SUFFIX}"
+    val instrumentedBinDirPath = s"${appPath}${DROIDEL_BIN_SUFFIX}"
     val instrumentedBinDir = new File(instrumentedBinDirPath)
     if (instrumentedBinDir.exists()) Util.deleteAllFiles(instrumentedBinDir)
     instrumentedBinDir.mkdir()
@@ -481,9 +483,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
     // TODO: just compile them in the right place instead of moving?
     // move stubs in with the apps
-    val newStubDir = new File(s"$instrumentedBinDir${File.separator}${DroidelConstants.STUB_DIR}")
+    val newStubDir = new File(s"$instrumentedBinDir${File.separator}${STUB_DIR}")
     if (newStubDir.exists()) newStubDir.delete()    
-    val oldStubDir = new File(DroidelConstants.STUB_DIR)
+    val oldStubDir = new File(STUB_DIR)
     if (oldStubDir.exists()) oldStubDir.renameTo(newStubDir)
 
     instrumentedBinDir
@@ -517,24 +519,26 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       val appImpls = pair._2
       val gen = new AndroidFrameworkCreatedTypesStubGenerator()
 
-      if (className == ClassUtil.walaifyClassName(AndroidConstants.APPLICATION_TYPE))
-        gen.generateStubs(appImpls, DroidelConstants.APPLICATION_STUB_CLASS, DroidelConstants.APPLICATION_STUB_METHOD,
-          AndroidConstants.APPLICATION_TYPE, s"new ${AndroidConstants.APPLICATION_TYPE}()", cha,
-          androidJar.getAbsolutePath, appBinPath)
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.ACTIVITY_TYPE))
-        gen.generateStubs(appImpls, DroidelConstants.ACTIVITY_STUB_CLASS, DroidelConstants.ACTIVITY_STUB_METHOD,
-                          AndroidConstants.ACTIVITY_TYPE, s"new ${AndroidConstants.ACTIVITY_TYPE}()", cha,
+      if (className == ClassUtil.walaifyClassName(APPLICATION_TYPE))
+        gen.generateStubs(appImpls, APPLICATION_STUB_CLASS, APPLICATION_STUB_METHOD, APPLICATION_TYPE,
+                          s"new ${APPLICATION_TYPE}()", cha, androidJar.getAbsolutePath, appBinPath)
+      else if (className == ClassUtil.walaifyClassName(ACTIVITY_TYPE))
+        gen.generateStubs(appImpls, ACTIVITY_STUB_CLASS, ACTIVITY_STUB_METHOD, ACTIVITY_TYPE, s"new ${ACTIVITY_TYPE}()",
+                          cha, androidJar.getAbsolutePath, appBinPath)
+      else if (className == ClassUtil.walaifyClassName(SERVICE_TYPE))
+        gen.generateStubs(appImpls, SERVICE_STUB_CLASS, SERVICE_STUB_METHOD, SERVICE_TYPE, "null", cha,
                           androidJar.getAbsolutePath, appBinPath)
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.SERVICE_TYPE))
-        println("Warning: generating service stubs unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.BROADCAST_RECEIVER_TYPE))
-        println("Warning: generating broadcast receiver stubs unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE))
+      else if (className == ClassUtil.walaifyClassName(BROADCAST_RECEIVER_TYPE))
+        gen.generateStubs(appImpls, BROADCAST_RECEIVER_STUB_CLASS, BROADCAST_RECEIVER_STUB_METHOD,
+                          BROADCAST_RECEIVER_TYPE, "null", cha, androidJar.getAbsolutePath,
+                          appBinPath)
+      else if (className == ClassUtil.walaifyClassName(CONTENT_PROVIDER_TYPE))
+        gen.generateStubs(appImpls, CONTENT_PROVIDER_STUB_CLASS, CONTENT_PROVIDER_STUB_METHOD, CONTENT_PROVIDER_TYPE,
+                          "null", cha, androidJar.getAbsolutePath, appBinPath)
+      else if (className == ClassUtil.walaifyClassName(FRAGMENT_TYPE))
         println("Warning: generating fragment stubs unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.APP_FRAGMENT_TYPE))
+      else if (className == ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE))
         println("Warning: generating app fragment stubs unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.CONTENT_PROVIDER_TYPE))
-        println("Warning: generating content provide stubs unimp")
       else sys.error(s"unsupported type $className")
     })
   }
@@ -557,9 +561,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
     // cleanup generated stub and harness source files
     if (cleanupGeneratedFiles) {
-      val stubDir = new File(DroidelConstants.STUB_DIR)
+      val stubDir = new File(STUB_DIR)
       if (stubDir.exists()) Util.deleteAllFiles(stubDir) 
-      val harnessDir = new File(DroidelConstants.HARNESS_DIR)
+      val harnessDir = new File(HARNESS_DIR)
       if (harnessDir.exists()) Util.deleteAllFiles(harnessDir)         
     }       
   }
@@ -570,7 +574,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   def getWALAStubs : Option[File] = {
-    val f = new File(s"${DroidelConstants.DROIDEL_HOME}/config/primordial.jar.model")
+    val f = new File(s"${DROIDEL_HOME}/config/primordial.jar.model")
     if (f.exists()) Some(f) else None
   }
     

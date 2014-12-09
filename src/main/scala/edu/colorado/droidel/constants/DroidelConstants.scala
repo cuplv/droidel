@@ -26,10 +26,17 @@ object DroidelConstants {
   val APPLICATION_STUB_METHOD = "getApplication"
   val ACTIVITY_STUB_CLASS = "GeneratedActivityStubs"
   val ACTIVITY_STUB_METHOD = "getActivity"
+  val SERVICE_STUB_CLASS = "GeneratedServiceStubs"
+  val SERVICE_STUB_METHOD = "getService"
+  val BROADCAST_RECEIVER_STUB_CLASS = "GeneratedBroadcastReceiverStubs"
+  val BROADCAST_RECEIVER_STUB_METHOD = "getBroadcastReceiver"
+  val CONTENT_PROVIDER_STUB_CLASS = "GeneratedContentProviderStubs"
+  val CONTENT_PROVIDER_STUB_METHOD = "getContentProvider"
 
   val HARNESS_DIR = "generatedharness"
   val HARNESS_CLASS = "GeneratedAndroidHarness" 
-  val HARNESS_TYPE = TypeReference.findOrCreate(ClassLoaderReference.Primordial, s"L$HARNESS_DIR${File.separator}$HARNESS_CLASS")      
+  val HARNESS_TYPE =
+    TypeReference.findOrCreate(ClassLoaderReference.Primordial, s"L$HARNESS_DIR${File.separator}$HARNESS_CLASS")
   val HARNESS_MAIN = "androidMain"
 
 }
