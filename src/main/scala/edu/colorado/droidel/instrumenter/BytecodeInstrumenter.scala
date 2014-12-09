@@ -25,7 +25,7 @@ class BytecodeInstrumenter {
     require(inJar.exists(), s"Can't find inJar $inJar")
     // tell the instrumenter what classes we are going to instrument
     instrumenter.addInputJar(inJar)    
-    // do not write unmodified classes into the output JAR
+    // don't write unmodified classes into the output JAR
     instrumenter.setPassUnmodifiedClasses(false)
     val outJar = new File(outJarName)    
     instrumenter.setOutputJar(outJar)

@@ -30,7 +30,8 @@ object AndroidAppTransformer {
 class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : String,
                             useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true,
-                            cleanupGeneratedFiles : Boolean = true) {
+                            cleanupGeneratedFiles : Boolean = true,
+                            generateHarness : Boolean = true) {
   require(androidJar.exists(), s"Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
@@ -253,8 +254,10 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     }))
   }
   
-  private def instrumentForApplicationAllocatedCallbackTypes(cha : IClassHierarchy, appCreatedCbMap : Map[IClass,Set[IMethod]], 
-      patchMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]]) : (File, Iterable[FieldReference]) = {
+  private def instrumentForApplicationAllocatedCallbackTypes(cha : IClassHierarchy,
+    appCreatedCbMap : Map[IClass,Set[IMethod]], patchMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
+    instrumentCbAllocs : Boolean = true) : (File, Iterable[FieldReference]) = {
+
     var dummyID = 0
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
@@ -264,7 +267,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
     // map from classes to sets of callback classes they extend
     val cbImplMap =
-      callbackClasses.foldLeft (Map.empty[IClass,List[IClass]]) ((m, t) => cha.lookupClass(t) match {
+      if (!instrumentCbAllocs) Map.empty[IClass, List[IClass]]
+      else callbackClasses.foldLeft (Map.empty[IClass,List[IClass]]) ((m, t) => cha.lookupClass(t) match {
         case null => m
         case cbClass =>
           (cha.computeSubClasses(t) ++ cha.getImplementors(t)).foldLeft (m) ((m, c) =>
@@ -289,7 +293,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
           if (ir != null) {
             val (allocs, calls) = ir.getInstructions().zipWithIndex.foldLeft (List.empty[(Int, List[IClass])],List.empty[(Int, Patch)]) ((l, pair) =>
               pair._1 match {
-                case i : SSANewInstruction if !ClassUtil.isLibrary(m)  =>
+                case i : SSANewInstruction if instrumentCbAllocs && !ClassUtil.isLibrary(m) =>
                   cha.lookupClass(i.getConcreteType()) match {
                     case null => l
                     case clazz =>
@@ -344,26 +348,30 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val appBinFile = new File(appBinPath)
     val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true)
     
-    val cbsToMakePublic = appCreatedCbMap.foldLeft (Map.empty[String,Set[IMethod]]) ((m, entry) => entry._2.filter(m => !m.isPublic()) match {
-      case needToMakePublic if needToMakePublic.isEmpty => m
-      case needToMakePublic => needToMakePublic.foldLeft (m) ((m, method) => 
-        Util.updateSMap(m, makeClassName(method.getDeclaringClass()), method)
-      )        
-    })
+    val cbsToMakePublic =
+      if (!instrumentCbAllocs) Map.empty[String,Set[IMethod]]
+      else appCreatedCbMap.foldLeft (Map.empty[String,Set[IMethod]]) ((m, entry) => entry._2.filter(m => !m.isPublic()) match {
+        case needToMakePublic if needToMakePublic.isEmpty => m
+        case needToMakePublic => needToMakePublic.foldLeft (m) ((m, method) =>
+          Util.updateSMap(m, makeClassName(method.getDeclaringClass()), method)
+        )
+      })
     if (!cbsToMakePublic.isEmpty || !allocMap.isEmpty || !stubMap.isEmpty) { // if there is instrumentation to do
       println("Performing bytecode instrumentation")
       val toInstrumentJarName = "toInstrument.jar"
       val instrumentedJarOutputName = "instrumented.jar"
       // create JAR containing classes to instrument only
-      val toInstrument = JavaUtil.createJar(appBinFile, toInstrumentJarName, "", startInsideDir = true, j => j.isDirectory() || 
-        cbsToMakePublic.contains(j.getName()) || allocMap.contains(j.getName()) || stubMap.contains(j.getName()))
+      val toInstrument =
+        JavaUtil.createJar(appBinFile, toInstrumentJarName, "", startInsideDir = true, j => j.isDirectory() ||
+                           cbsToMakePublic.contains(j.getName()) || allocMap.contains(j.getName()) || stubMap.contains(j.getName()))
       // perform instrumentation
       val instrumentedJar =
         new BytecodeInstrumenter().doIt(toInstrument, allocMap, stubMap, cbsToMakePublic, instrumentedJarOutputName)
       assert(instrumentedJar.exists(), s"Instrumentation did not create JAR file $instrumentedJar")
       
-      // merge JAR containing instrumented classes on top of JAR containing original app. very important that instrumented JAR 
-      // comes first in the sequence passed to mergeJars, since we want to overwrite some entries in the original JAR
+      // merge JAR containing instrumented classes on top of JAR containing original app. very important that
+      // instrumented JAR comes first in the sequence passed to mergeJars, since we want to overwrite some entries in
+      // the original JAR
       val mergedJarName = "merged.jar"
       JavaUtil.mergeJars(Seq(instrumentedJar, originalJar), mergedJarName, duplicateWarning = false)
       val newJar = new File(mergedJarName)
@@ -371,7 +379,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       // commenting out because Java.nio.Files requires Java 7
       // Files.move(newJar.toPath(), originalJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
       if (originalJar.exists()) originalJar.delete()
-      newJar.renameTo(originalJar)      
+      newJar.renameTo(originalJar)
       toInstrument.delete() // cleanup JAR containing classes to instrument
       instrumentedJar.delete() // cleanup instrumented JAR output
     }
@@ -398,13 +406,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       }
     )
 
-  private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy,
+  private def doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap : Map[IClass,Set[IClass]],
                                                   manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
                                                   layoutElems : Iterable[InhabitedLayoutElement],
                                                   stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
-                                                  stubPaths : Iterable[File]) : Unit = {
-   
-    val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
+                                                  stubPaths : Iterable[File],
+                                                  cha : IClassHierarchy, generateHarness : Boolean = true) : File = {
+
     // TODO: parse and check more than just Activity's. also, use the manifest to curate what we include above so we do
     // not include to much
     // sanity check our list of framework created types against the manifest
@@ -419,10 +427,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
        }
     })
 
-    // make a map fron application class -> set of lifecyle and manifest-declared callbacks on application class (+ all on* methods)
-    // not that this map does *not* contain callbacks from implementing additional callback interfaces -- these are discovered
-    // in the harness generator.
-    val frameworkCreatedTypesCallbackMap = frameworkCreatedTypesMap.foldLeft (Map.empty[IClass,Set[IMethod]]) ((m, entry) => {
+    // make a map fron application class -> set of lifecyle and manifest-declared callbacks on application class (+ all
+    // on* methods). note that this map does *not* contain callbacks from implementing additional callback interfaces --
+    // these are discovered in the harness generator itself.
+    val frameworkCreatedTypesCallbackMap = if (!generateHarness) Map.empty[IClass,Set[IMethod]] else
+      frameworkCreatedTypesMap.foldLeft (Map.empty[IClass,Set[IMethod]]) ((m, entry) => {
       val possibleCallbacks = AndroidLifecycle.getCallbacksOnFrameworkCreatedType(entry._1, cha)
       entry._2.foldLeft (m) ((m, appClass) => {
         val appOverrides = {
@@ -434,9 +443,12 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
         val onMethodsAndOverrides = appClass.getAllMethods().foldLeft (appOverrides.toSet) ((s, m) => 
           if (!m.isPrivate() && !ClassUtil.isLibrary(m.getDeclaringClass()) && m.getName().toString().startsWith("on") &&
             // hack to avoid difficulties with generic methods, whose parameter types are often Object
-            (0 to m.getNumberOfParameters() - 1).forall(i => m.getParameterType(i).getName() != TypeReference.JavaLangObject.getName())) s + m else s)          
+            (0 to m.getNumberOfParameters() - 1)
+            .forall(i => m.getParameterType(i).getName() != TypeReference.JavaLangObject.getName())) s + m else s)
                 
-          val allCbs = manifestDeclaredCallbackMap.getOrElse(appClass, Set.empty[IMethod]).foldLeft (onMethodsAndOverrides) ((s, m) => s + m)
+          val allCbs =
+            manifestDeclaredCallbackMap.getOrElse(appClass, Set.empty[IMethod])
+            .foldLeft (onMethodsAndOverrides) ((s, m) => s + m)
           assert(!m.contains(appClass), s"Callback map already has entry for app class $appClass")
           m + (appClass ->  allCbs)
         })
@@ -447,33 +459,37 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     // via an instrumentation field
     // (2) make all callback methods in the appClassCbMap public so they can be called from the harness
     val (instrumentedJar, instrumentationFields) =
-      instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
+      instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap,
+                                                     instrumentCbAllocs = generateHarness)
     timer.printTimeTaken("Performing bytecode instrumentation")
 
-    println("Generating harness")
-    generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
-                                            instrumentationFields, stubPaths, instrumentedJar, cha)
-    timer.printTimeTaken("Generating and compiling harness")
+    if (generateHarness) {
+      println("Generating harness")
+      generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
+        instrumentationFields, stubPaths, instrumentedJar, cha)
+      timer.printTimeTaken("Generating and compiling harness")
+      // no need to keep the JAR; we have an output directory containing these files
+      if (instrumentedJar.exists()) instrumentedJar.delete()
+    }
 
-    // no need to keep the JAR; we have an output directory containing these files
-    if (instrumentedJar.exists()) instrumentedJar.delete()
+    instrumentedJar
   }
   
   private def generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap : Map[IClass,Set[IMethod]],
                                                       layoutElems : Iterable[InhabitedLayoutElement],
                                                       manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], 
                                                       instrumentationFields : Iterable[FieldReference],   
-                                                      stubPaths : Iterable[File],
-                                                      instrumentedJar : File, cha : IClassHierarchy) : File = {  
-    
+                                                      stubPaths : Iterable[File], instrumentedJar : File,
+                                                      cha : IClassHierarchy) : File = {
+
     // create fresh directory for instrumented bytecodes
     val instrumentedBinDirPath = s"${appPath}${DROIDEL_BIN_SUFFIX}"
     val instrumentedBinDir = new File(instrumentedBinDirPath)
     if (instrumentedBinDir.exists()) Util.deleteAllFiles(instrumentedBinDir)
     instrumentedBinDir.mkdir()
-    
+
     // extract the JAR containing the instrumented class files
-    Process(Seq("jar", "xvf", instrumentedJar.getAbsolutePath()), new File(instrumentedBinDir.getAbsolutePath())).!!
+    Process(Seq("jar", "xvf", instrumentedJar.getAbsolutePath()), instrumentedBinDir).!!
 
     // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
     val harnessGen = new AndroidHarnessGenerator(cha, instrumentationFields)
@@ -511,8 +527,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     (layoutMap, manifestDeclaredCallbackMap)
   }
 
-  def generateFrameworkCreatedTypesStubs(cha : IClassHierarchy) : Unit = {
-    val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
+  def generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap : Map[IClass,Set[IClass]],
+                                         cha : IClassHierarchy) : Unit = {
     // generate Application stubs
     frameworkCreatedTypesMap.foreach(pair => {
       val className = pair._1.getReference.getName.toString
@@ -553,11 +569,28 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val cha = ClassHierarchy.make(analysisScope)
     // parse app layout
     val (layoutMap, manifestDeclaredCallbackMap) = parseLayout(cha)
-    // generate app-specialized stubs
+    // generate app-specialized stubs for layout
     val (stubMap, inhabitedLayoutElems, stubPaths) = generateStubs(layoutMap, cha)
-    //generateFrameworkCreatedTypesStubs(cha)
+    // generated app-specialized stub for lifecycle types (Activity's, Service's, etc.)
+    val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
+    generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap, cha)
     // inject the stubs via bytecode instrumentation and generate app-specialized harness
-    doInstrumentationAndGenerateHarness(cha, manifestDeclaredCallbackMap, inhabitedLayoutElems, stubMap, stubPaths)
+    val instrumentedJar =
+      doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap, manifestDeclaredCallbackMap,
+                                          inhabitedLayoutElems, stubMap, stubPaths, cha,
+                                          generateHarness = generateHarness)
+
+    if (!generateHarness) {
+      val droidelHandwrittenStubsDir = "stubs"
+      val appJarName = "app.jar"
+      instrumentedJar.renameTo(new File(s"$droidelHome${File.separator}$appJarName"))
+      // compile generated stubs against the Android library and the app
+      Process(Seq("make", "-C", droidelHandwrittenStubsDir)).!!
+      val compilationOutput = new File(Util.toCSVStr(Seq(droidelHome, droidelHandwrittenStubsDir, "out", appJarName),
+        File.separator))
+      assert(compilationOutput.exists(),
+        "Compilation of stubs against library and app failed--run make -C stubs and try fixing erorrs manually")
+    }
 
     // cleanup generated stub and harness source files
     if (cleanupGeneratedFiles) {
@@ -567,7 +600,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       if (harnessDir.exists()) Util.deleteAllFiles(harnessDir)         
     }       
   }
-  
+
   private def getJVMLibFile : Option[File] = {    
     val PATH = System.getProperty("java.home")
     List(new File(PATH + "/lib/rt.jar"), new File(PATH + "/../Classes/classes.jar")).find(f => f.exists())

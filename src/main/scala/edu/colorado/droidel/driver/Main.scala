@@ -11,13 +11,15 @@ object Main {
     val ANDROID_JAR = "-android_jar"
     val NO_JPHANTOM = "-no_jphantom"
     val NO_INSTRUMENT = "-no_instrument"
+    val NO_HARNESS = "-no_harness"
     val DROIDEL_HOME = "-droidel_home"
     val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
     	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
     val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false),
-                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false))
+                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false),
+                    s"$NO_HARNESS" -> ("Don't generate an external harness-use ActivityThread.main instead", false))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh $APP <path_to_app> $ANDROID_JAR <path_to_jar> [flags]")
@@ -61,7 +63,8 @@ object Main {
       val droidelHome = parsedArgs.getOrElse(DROIDEL_HOME, ".")
       val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
       val noInstrument = parsedFlags.getOrElse(NO_INSTRUMENT, flags(NO_INSTRUMENT)._2)
-      
+      val noHarness = parsedFlags.getOrElse(NO_HARNESS, flags(NO_HARNESS)._2)
+
       val appFile = new File(app) 
       assert(appFile.exists(), s"Couldn't find input application $app")
       // convert the input from an apk into our desired format if necessary
@@ -72,7 +75,8 @@ object Main {
 
       val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
                                                   useJPhantom = !noJphantom,
-                                                  instrumentLibs = !noInstrument)
+                                                  instrumentLibs = !noInstrument,
+                                                  generateHarness = !noHarness)
 
       transformer.transformApp()
     }
