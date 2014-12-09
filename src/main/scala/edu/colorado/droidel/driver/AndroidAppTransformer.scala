@@ -509,24 +509,34 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     (layoutMap, manifestDeclaredCallbackMap)
   }
 
-  def generatedFrameworkCreatedTypesStubs(cha : IClassHierarchy) : Unit = {
+  def generateFrameworkCreatedTypesStubs(cha : IClassHierarchy) : Unit = {
     val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
     // generate Application stubs
     frameworkCreatedTypesMap.foreach(pair => {
       val className = pair._1.getReference.getName.toString
       val appImpls = pair._2
-      if (className == ClassUtil.walaifyClassName(AndroidConstants.APPLICATION_TYPE)) {
-        sys.error("unimp")
-      } else if (className == ClassUtil.walaifyClassName(AndroidConstants.ACTIVITY_TYPE)) sys.error("unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.SERVICE_TYPE)) sys.error("unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.BROADCAST_RECEIVER_TYPE)) sys.error("unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE)) sys.error("unimp")
-      else if (className == ClassUtil.walaifyClassName(AndroidConstants.APP_FRAGMENT_TYPE)) sys.error("unimp")
+      val gen = new AndroidFrameworkCreatedTypesStubGenerator()
+
+      if (className == ClassUtil.walaifyClassName(AndroidConstants.APPLICATION_TYPE))
+        gen.generateStubs(appImpls, DroidelConstants.APPLICATION_STUB_CLASS, DroidelConstants.APPLICATION_STUB_METHOD,
+          AndroidConstants.APPLICATION_TYPE, s"new ${AndroidConstants.APPLICATION_TYPE}()", cha,
+          androidJar.getAbsolutePath, appBinPath)
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.ACTIVITY_TYPE))
+        gen.generateStubs(appImpls, DroidelConstants.ACTIVITY_STUB_CLASS, DroidelConstants.ACTIVITY_STUB_METHOD,
+                          AndroidConstants.ACTIVITY_TYPE, s"new ${AndroidConstants.ACTIVITY_TYPE}()", cha,
+                          androidJar.getAbsolutePath, appBinPath)
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.SERVICE_TYPE))
+        println("Warning: generating service stubs unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.BROADCAST_RECEIVER_TYPE))
+        println("Warning: generating broadcast receiver stubs unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE))
+        println("Warning: generating fragment stubs unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.APP_FRAGMENT_TYPE))
+        println("Warning: generating app fragment stubs unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.CONTENT_PROVIDER_TYPE))
+        println("Warning: generating content provide stubs unimp")
       else sys.error(s"unsupported type $className")
     })
-    // generate Activity stubs
-    // generate Service stubs
-    // generate ContentProvider stubs
   }
   
   val timer = new Timer
@@ -541,6 +551,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val (layoutMap, manifestDeclaredCallbackMap) = parseLayout(cha)
     // generate app-specialized stubs
     val (stubMap, inhabitedLayoutElems, stubPaths) = generateStubs(layoutMap, cha)
+    //generateFrameworkCreatedTypesStubs(cha)
     // inject the stubs via bytecode instrumentation and generate app-specialized harness
     doInstrumentationAndGenerateHarness(cha, manifestDeclaredCallbackMap, inhabitedLayoutElems, stubMap, stubPaths)
 
