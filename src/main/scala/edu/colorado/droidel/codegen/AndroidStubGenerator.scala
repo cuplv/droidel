@@ -1,19 +1,32 @@
 package edu.colorado.droidel.codegen
 
-import java.io.File
+import java.io.{File, FileWriter, StringWriter}
 
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.shrikeBT.MethodEditor.Patch
-import com.ibm.wala.ssa.{IR, SSAInvokeInstruction}
+import com.squareup.javawriter.JavaWriter
+import edu.colorado.walautil.JavaUtil
 
 trait AndroidStubGenerator {
-  type TryCreatePatch = (SSAInvokeInstruction, IR) => Option[Patch]
-  type StubMap = Map[IMethod, TryCreatePatch]  
-  
-  /** mapping from MethodReference to stub -> function deciding whether (and how) a given instruction should be stubbed,
-   *  and alist of files created during stub generation 
-   */          
-  def generateStubs(stubMap : StubMap = Map.empty[IMethod, TryCreatePatch], generatedStubs : List[File] = Nil) : (StubMap, List[File])
-                         
-  // TODO: factor out some of the functionality for generating Java code for stubs/compiling into this trait or another one                                                  
+  // type aliases to make some type signatures more clear
+  type VarName = String
+  type Expression = String
+  type Statement = String
+  val DEBUG = false
+
+  val inhabitor = new TypeInhabitor
+  val strWriter = new StringWriter
+  val writer = new JavaWriter(strWriter)
+
+  def writeAndCompileStub(stubPath : String, compilerOptions : Iterable[String]) : File = {
+    // write out stub to file
+    val fileWriter = new FileWriter(s"${stubPath}.java")
+    if (DEBUG) println(s"Generated stub: ${strWriter.toString()}")
+    fileWriter.write(strWriter.toString())
+    // cleanup
+    strWriter.close()
+    writer.close()
+    fileWriter.close()
+    val compiled = JavaUtil.compile(Iterable(stubPath), compilerOptions)
+    assert(compiled, s"Couldn't compile stub file $stubPath")
+    new File(stubPath)
+  }
 }

@@ -21,6 +21,7 @@ object DroidelConstants {
   val STUB_DIR = "generatedstubs"
   val LAYOUT_STUB_CLASS = "GeneratedAndroidLayoutStubs"
   val SYSTEM_SERVICE_STUB_CLASS = "GeneratedAndroidSystemServiceStubs"
+  val ACTIVITY_STUB_CLASS = "GeneratedActivityStubs"
   val HARNESS_DIR = "generatedharness"
   val HARNESS_CLASS = "GeneratedAndroidHarness" 
   val HARNESS_TYPE = TypeReference.findOrCreate(ClassLoaderReference.Primordial, s"L$HARNESS_DIR${File.separator}$HARNESS_CLASS")      

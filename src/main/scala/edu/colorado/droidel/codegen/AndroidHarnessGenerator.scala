@@ -1,6 +1,6 @@
 package edu.colorado.droidel.codegen
 
-import java.io.{File, StringWriter}
+import java.io.File
 import java.util.EnumSet
 import javax.lang.model.element.Modifier.{PUBLIC, STATIC}
 
@@ -10,7 +10,6 @@ import com.ibm.wala.ipa.cha.IClassHierarchy
 import com.ibm.wala.shrikeBT.IInvokeInstruction
 import com.ibm.wala.ssa.SSAInstruction
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, TypeReference}
-import edu.colorado.droidel.codegen.AndroidHarnessGenerator._
 import edu.colorado.droidel.constants.{AndroidConstants, DroidelConstants}
 import edu.colorado.walautil._
 
@@ -20,15 +19,10 @@ object AndroidHarnessGenerator {
   private val DEBUG = false
 }
 
-class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Iterable[FieldReference]) {  
-  // type aliases to make some type signatures more clear
-  type Expression = String
-  type Statement = String
-  type VarName = String  
-
+class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Iterable[FieldReference])
+  extends AndroidStubGenerator {
   // turning this off until we understand what to do better
   val HANDLE_EVENT_DISPATCH = false // TODO: fix and turn on
-  val inhabitor = new TypeInhabitor
   val inhabitantCache = inhabitor.inhabitantCache
   
   // TODO: there can be multiple instrumentation vars of the same type. only one will be in the map. this may be undesirable  
@@ -39,11 +33,8 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
   def makeSpecializedViewInhabitantCache(stubPaths : Iterable[File]) = {
     def makeClass(className : String) : IClass = 
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(className)))
-      
     val layoutStubClass = s"${DroidelConstants.STUB_DIR}.${DroidelConstants.LAYOUT_STUB_CLASS}"
-
     val viewClass = makeClass(AndroidConstants.VIEW_TYPE)
-
     val (alloc, freshVar) = inhabitor.mkAssign(viewClass, s"$layoutStubClass.findViewById(-1)")
     initAllocs = alloc :: initAllocs
     inhabitantCache.put(viewClass, freshVar)
@@ -127,7 +118,7 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
                       layoutElems : Iterable[InhabitedLayoutElement],
                       manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
                       instrumentedBinDir : String,
-                      androidJarPath : String) : String = {
+                      androidJarPath : String) : File = {
 
     val harnessDir = new File(s"${instrumentedBinDir}/${DroidelConstants.HARNESS_DIR}")
     if (!harnessDir.exists()) harnessDir.mkdir()        
@@ -247,14 +238,12 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
           )
       })
 
-    val strWriter = new StringWriter
-    
-    val harnessWriter = WriterFactory.factory(strWriter);
-         
+    val harnessWriter = WriterFactory.factory(writer);
+
     harnessWriter.emitBegin();
 
     // emit static fields for each of our instrumentation variables
-    instrumentationVars.foreach(field => harnessWriter.emitField(ClassUtil.deWalaifyClassName(field.getFieldType()), 
+    instrumentationVars.foreach(field => harnessWriter.emitField(ClassUtil.deWalaifyClassName(field.getFieldType()),
                                                           field.getName().toString(),
                                                           EnumSet.of(PUBLIC, STATIC)))   
                                                           
@@ -286,19 +275,12 @@ class AndroidHarnessGenerator(cha : IClassHierarchy, instrumentationVars : Itera
     
     
     val harnessPath = s"${harnessDir.getAbsolutePath()}/${DroidelConstants.HARNESS_CLASS}"
-
-    harnessWriter.write(harnessPath, DEBUG);
-    
-    val timer = new Timer
-    timer.start
-    if (DEBUG) println("Compiling harness")
     // compile harness against Android library and the *instrumented* app (since the harness may use types from the app, and our instrumentation
     // may have made callbacks public that were previously private/protected)
     // place resulting .class file in the top-level directory for the instrumented app
-    val compilerOptions = List("-cp", s".${File.pathSeparator}${androidJarPath}${File.pathSeparator}$instrumentedBinDir", "-d", instrumentedBinDir)
-    val compiled = JavaUtil.compile(List(harnessPath), compilerOptions)
-    timer.printTimeTaken("Compiling harness")
-    assert(compiled, s"Couldn't compile harness $harnessPath")        
-    harnessPath
-  }          
+    val compilerOptions =
+      List("-cp", s".${File.pathSeparator}${androidJarPath}${File.pathSeparator}$instrumentedBinDir",
+           "-d", instrumentedBinDir)
+    writeAndCompileStub(harnessPath, compilerOptions)
+  }
 }

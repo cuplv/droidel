@@ -1,13 +1,11 @@
 package com.ibm.mobile.droidertemplate
 
-import java.io.StringWriter
 import java.util.EnumSet
-import javax.lang.model.element.Modifier.FINAL
-import javax.lang.model.element.Modifier.PRIVATE
-import javax.lang.model.element.Modifier.PUBLIC
-import javax.lang.model.element.Modifier.STATIC
+import javax.lang.model.element.Modifier.{PRIVATE, STATIC}
 
-class AndroidHarnessWithLoopIfWriter(val w : StringWriter) extends AndroidHarnessWriter(w) {
+import com.squareup.javawriter.JavaWriter
+
+class AndroidHarnessWithLoopIfWriter(w : JavaWriter) extends AndroidHarnessWriter(w) {
   
   override def emitBegin() {
     super.emitBegin();
@@ -16,8 +14,7 @@ class AndroidHarnessWithLoopIfWriter(val w : StringWriter) extends AndroidHarnes
     writer.emitStatement("return new Random().nextBoolean()")
     writer.endMethod();
   }
-  
-  
+
   override def beginCallToComponent() : Unit = {
     writer.beginControlFlow("while(nondet())");//begin while loop;
   }
@@ -26,7 +23,6 @@ class AndroidHarnessWithLoopIfWriter(val w : StringWriter) extends AndroidHarnes
     super.emitImports();
     writer.emitImports("java.util.Random");
   }
-  
 
   override def emitEndHarness() {
     writer.endControlFlow() // end while loop

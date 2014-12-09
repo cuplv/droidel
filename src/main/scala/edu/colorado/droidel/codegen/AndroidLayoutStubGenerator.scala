@@ -1,6 +1,6 @@
 package edu.colorado.droidel.codegen
 
-import java.io.{File, FileWriter, StringWriter}
+import java.io.File
 import java.util.EnumSet
 import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
 
@@ -10,13 +10,11 @@ import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
 import com.ibm.wala.shrikeBT.{IInvokeInstruction, InvokeInstruction, PopInstruction}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
-import com.squareup.javawriter.JavaWriter
-import edu.colorado.droidel.codegen.AndroidLayoutStubGenerator._
 import edu.colorado.droidel.constants.AndroidConstants
 import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.parser.{LayoutElement, LayoutFragment, LayoutView}
-import edu.colorado.walautil.{Util, ClassUtil, JavaUtil}
+import edu.colorado.walautil.{ClassUtil, Util}
 
 import scala.collection.JavaConversions._
 
@@ -27,10 +25,10 @@ object AndroidLayoutStubGenerator {
 
 class InhabitedLayoutElement(val name : String, val id : Option[Int], val inhabitant : String, val typ : TypeReference)
 
-class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]], 
+class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
                                  cha : IClassHierarchy, 
                                  androidJarPath : String, 
-                                 appBinPath : String) extends AndroidStubGenerator {
+                                 appBinPath : String) extends AndroidStubGeneratorWithInstrumentation {
   // rather than keep track of layouts and view hierarchies, smush them all together into one giant hierarchy
   // this creates complications for things like duplicate id's
   val SMUSH_VIEWS = true
@@ -39,9 +37,6 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
   def getInhabitedElems : Iterable[InhabitedLayoutElement] = inhabitedLayoutElems
     
   type LayoutId = Int
-  type VarName = String
-  type Expression = String
-  type Statement = String
 
   def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) =
     if (SMUSH_VIEWS) {
@@ -110,8 +105,6 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
                                 stubMap : StubMap, generatedStubs : List[File],
                                 specializedGetterMap : Map[LayoutId,MethodReference], 
                                 stubClassName : String, appBinPath : String) : (StubMap, List[File]) = {
-    val inhabitor = new TypeInhabitor  
-    
     val viewClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(VIEW_TYPE)))
     assert(viewClass != null, "Couldn't find View class in class hierarchy. Something is very wrong")
     val fragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(FRAGMENT_TYPE)))
@@ -162,18 +155,15 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
     //val stubClassName = s"${ClassUtil.deWalaifyClassName(clazz.getName()).replace('.', '_')}_layoutStubs"
-    
-    val strWriter = new StringWriter
-    val writer = new JavaWriter(strWriter)        
-    
+
     val ALL_WIDGETS = "android.widget.*"
     val ALL_VIEWS = "android.view.*"
     
-    writer.emitPackage(STUB_DIR) 
+    writer.emitPackage(STUB_DIR)
 
-    writer.emitImports(ALL_VIEWS, ALL_WIDGETS) 
+    writer.emitImports(ALL_VIEWS, ALL_WIDGETS)
     writer.emitEmptyLine()
-    
+
     writer.beginType(stubClassName, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
 
     // emit a field for each statically declared View and Fragment
@@ -264,24 +254,12 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     }
         
     writer.endType() // end class            
-    
-    // write out stub to file
+
     val stubPath = s"$STUB_DIR${File.separator}$stubClassName"
-    val fileWriter = new FileWriter(s"${stubPath}.java")
-    if (DEBUG) println(s"Generated stub: ${strWriter.toString()}")
-    fileWriter.write(strWriter.toString())    
-    // cleanup
-    strWriter.close()
-    writer.close()    
-    fileWriter.close()
-    
-    // compile stub against Android library *and* app (since it may use types from the app)
     val compilerOptions = List("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath")
-    if (DEBUG) println(s"Running javac ${compilerOptions(0)} ${compilerOptions(1)}")
-    val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
-    assert(compiled, s"Couldn't compile stub file $stubPath")    
+    val compiledStub = writeAndCompileStub(stubPath, compilerOptions)
     // TODO: pass path of generated stubs out for easier cleanup later
-    (makeStubMap(specializedGetters, stubMap), new File(stubPath) :: generatedStubs)
+    (makeStubMap(specializedGetters, stubMap), compiledStub :: generatedStubs)
   }
   
   private def makeStubMap(specializedLayoutGettersMap : Map[LayoutId, MethodReference], stubMap : StubMap) : StubMap = {

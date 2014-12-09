@@ -9,8 +9,8 @@ import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
-import edu.colorado.droidel.codegen.{AndroidHarnessGenerator, AndroidLayoutStubGenerator, AndroidSystemServiceStubGenerator, InhabitedLayoutElement}
-import edu.colorado.droidel.constants.{AndroidLifecycle, DroidelConstants}
+import edu.colorado.droidel.codegen._
+import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle, DroidelConstants}
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import edu.colorado.droidel.parser._
@@ -376,35 +376,33 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     
     (originalJar, instrFlds)
   }
-  
+
+  // make a map from framework class -> set of application classes implementing framework class)
+  // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
+  // TODO: curate by reasoning about callback registration. only need to include registered classes
+  private def makeFrameworkCreatedTypesMap(cha : IClassHierarchy) : Map[IClass,Set[IClass]] =
+    AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft (Map.empty[IClass,Set[IClass]]) ((m, c) =>
+      cha.computeSubClasses(c.getReference()).filter(c => !ClassUtil.isLibrary(c)) match {
+        case appSubclasses if appSubclasses.isEmpty => m
+        case appSubclasses =>
+          // we only handle public classes because we need to be able to instantiate them and call their callbakcs
+          // callback extraction should handle most of the other cases
+          // abstract classes cannot be registered for callbacks because they can't be instantiated
+          appSubclasses.filter(c => c.isPublic() && !c.isAbstract() && !ClassUtil.isInnerOrEnum(c)) match {
+            case concreteSubclasses if concreteSubclasses.isEmpty => m
+            case concreteSubclasses =>
+              m + (c -> concreteSubclasses.toSet)
+          }
+      }
+    )
+
   private def doInstrumentationAndGenerateHarness(cha : IClassHierarchy,
                                                   manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
                                                   layoutElems : Iterable[InhabitedLayoutElement],
                                                   stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
                                                   stubPaths : Iterable[File]) : Unit = {
-    
-    // make a map from framework class -> set of application classes implementing framework class)
-    // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
-    // TODO: curate by reasoning about callback registration. only need to include registered classes
-    def makeFrameworkCreatedTypesMap() : Map[IClass,Set[IClass]] = 
-      AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft (Map.empty[IClass,Set[IClass]]) ((m, c) => {
-        val subclasses = cha.computeSubClasses(c.getReference())
-        subclasses.filter(c => !ClassUtil.isLibrary(c)) match {
-          case appSubclasses if appSubclasses.isEmpty => m
-          case appSubclasses =>
-            // we only handle public classes because we need to be able to instantiate them and call their callbakcs
-            // callback extraction should handle most of the other cases
-            // abstract classes cannot be registered for callbacks because they can't be instantiated
-            appSubclasses.filter(c => c.isPublic() && !c.isAbstract() && !ClassUtil.isInnerOrEnum(c)) match {
-              case concreteSubclasses if concreteSubclasses.isEmpty => m
-              case concreteSubclasses =>
-                m + (c -> concreteSubclasses.toSet)                
-            }
-        }
-      })
-
    
-    val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap
+    val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
     // TODO: parse and check more than just Activity's. also, use the manifest to curate what we include above so we do
     // not include to much
     // sanity check our list of framework created types against the manifest
@@ -494,7 +492,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) :
     (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], Iterable[InhabitedLayoutElement], List[File]) = {
     println("Generating stubs")
-    val layoutStubGenerator = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath(), appBinPath)
+    val layoutStubGenerator = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath, appBinPath)
     val (stubMap, generatedStubs) = layoutStubGenerator.generateStubs()
     val (finalStubMap, stubPaths) =
       new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
@@ -509,6 +507,26 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val manifestDeclaredCallbackMap = collectManifestDeclaredCallbacks(layoutMap)
     timer.printTimeTaken("Parsing layout")
     (layoutMap, manifestDeclaredCallbackMap)
+  }
+
+  def generatedFrameworkCreatedTypesStubs(cha : IClassHierarchy) : Unit = {
+    val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
+    // generate Application stubs
+    frameworkCreatedTypesMap.foreach(pair => {
+      val className = pair._1.getReference.getName.toString
+      val appImpls = pair._2
+      if (className == ClassUtil.walaifyClassName(AndroidConstants.APPLICATION_TYPE)) {
+        sys.error("unimp")
+      } else if (className == ClassUtil.walaifyClassName(AndroidConstants.ACTIVITY_TYPE)) sys.error("unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.SERVICE_TYPE)) sys.error("unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.BROADCAST_RECEIVER_TYPE)) sys.error("unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE)) sys.error("unimp")
+      else if (className == ClassUtil.walaifyClassName(AndroidConstants.APP_FRAGMENT_TYPE)) sys.error("unimp")
+      else sys.error(s"unsupported type $className")
+    })
+    // generate Activity stubs
+    // generate Service stubs
+    // generate ContentProvider stubs
   }
   
   val timer = new Timer

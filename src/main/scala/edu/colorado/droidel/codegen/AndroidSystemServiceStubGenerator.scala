@@ -1,43 +1,26 @@
 package edu.colorado.droidel.codegen
 
-import java.io.StringWriter
-import com.squareup.javawriter.JavaWriter
 import java.io.File
+import java.util.EnumSet
+import javax.lang.model.element.Modifier.{FINAL, PRIVATE, PUBLIC, STATIC}
+
+import com.ibm.wala.ipa.cha.IClassHierarchy
+import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
+import com.ibm.wala.shrikeBT.{IInvokeInstruction, InvokeInstruction, PopInstruction, SwapInstruction}
+import com.ibm.wala.ssa.{IR, SSAInvokeInstruction}
+import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
+import edu.colorado.droidel.constants.AndroidConstants
+import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.walautil.ClassUtil
 
 import scala.collection.JavaConversions._
-import edu.colorado.droidel.constants.DroidelConstants._
-import java.util.EnumSet
-import javax.lang.model.element.Modifier.FINAL
-import javax.lang.model.element.Modifier.PRIVATE
-import javax.lang.model.element.Modifier.PUBLIC
-import javax.lang.model.element.Modifier.STATIC
-import edu.colorado.walautil.ClassUtil
-import com.ibm.wala.types.TypeReference
-import com.ibm.wala.types.ClassLoaderReference
-import com.ibm.wala.ipa.cha.IClassHierarchy
-import java.io.FileWriter
-import AndroidSystemServiceStubGenerator._
-import edu.colorado.walautil.JavaUtil
-import edu.colorado.walautil.Types._
-import edu.colorado.droidel.constants.AndroidConstants
-import com.ibm.wala.types.MethodReference
-import com.ibm.wala.shrikeBT.MethodEditor.{Patch, Output}
-import com.ibm.wala.shrikeBT.PopInstruction
-import com.ibm.wala.shrikeBT.InvokeInstruction
-import com.ibm.wala.shrikeBT.IInvokeInstruction
-import com.ibm.wala.shrikeBT.SwapInstruction
-import com.ibm.wala.ssa.SSAInvokeInstruction
-import com.ibm.wala.ssa.SymbolTable
-import edu.colorado.walautil.CHAUtil
-import com.ibm.wala.classLoader.IMethod
-import com.ibm.wala.ssa.IR
 
 object AndroidSystemServiceStubGenerator {
   val DEBUG = false
 }
 
-class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : String) extends AndroidStubGenerator {  
+class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : String)
+  extends AndroidStubGeneratorWithInstrumentation {
   
   val SYSTEM_SERVICES_MAP = Map(
     "accessibility" -> "android.view.accessibility.AccessibilityManager",
@@ -60,17 +43,13 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     "wifi" -> "android.net.wifi.WifiManager",
     "window" -> "android.view.WindowManager"
   )  
-  
-  type Expression = String
-  type Statement = String
-  
+
   override def generateStubs(stubMap : StubMap, generatedStubs : List[File]) : (StubMap, List[File]) = {
     val GET_SYSTEM_SERVICE = "getSystemService"
       
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
-    
-    val inhabitor = new TypeInhabitor  
+
     val (inhabitantMap, allocs) = SYSTEM_SERVICES_MAP.foldLeft (Map.empty[String,Expression], List.empty[Statement]) ((pair, entry) => {
       val typ = TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(entry._2))
       try {
@@ -83,10 +62,6 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
         case e : Throwable => pair
       }
     })
-        
-
-    val strWriter = new StringWriter
-    val writer = new JavaWriter(strWriter)
      
     writer.emitPackage(STUB_DIR) 
 
@@ -126,22 +101,9 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     
     writer.endMethod()
     writer.endType() // end class
-    
-    // write out stub to file
+
     val stubPath = s"$STUB_DIR${File.separator}$SYSTEM_SERVICE_STUB_CLASS"
-    val fileWriter = new FileWriter(s"${stubPath}.java")
-    if (DEBUG) println(s"Generated stub: ${strWriter.toString()}")
-    fileWriter.write(strWriter.toString())    
-    // cleanup
-    strWriter.close()
-    writer.close()    
-    fileWriter.close()
-    
-    // compile stub against Android library 
-    val compilerOptions = List("-cp", s"${androidJarPath}")
-    if (DEBUG) println(s"Running javac ${compilerOptions(0)} ${compilerOptions(1)}")
-    val compiled = JavaUtil.compile(List(stubPath), compilerOptions)
-    assert(compiled, s"Couldn't compile stub file $stubPath")   
+    val compiledStub = writeAndCompileStub(stubPath, List("-cp", androidJarPath))
     
     val getSystemServiceDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;"
     val contextTypeRef = ClassUtil.makeTypeRef(AndroidConstants.CONTEXT_TYPE)
@@ -178,7 +140,7 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     def tryCreatePatch(i : SSAInvokeInstruction, ir : IR) : Option[Patch] = Some(shrikePatch)
     
     (possibleOverrides.foldLeft (stubMap) ((map, method) => map + (method -> tryCreatePatch)),
-     new File(stubPath) :: generatedStubs)
+     compiledStub :: generatedStubs)
   }   
   
 }

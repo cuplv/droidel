@@ -1,20 +1,13 @@
 package com.ibm.mobile.droidertemplate
 
+import java.util.EnumSet
+import javax.lang.model.element.Modifier
+import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
+
 import com.squareup.javawriter.JavaWriter
 import edu.colorado.droidel.constants.DroidelConstants
-import java.util.EnumSet
-import javax.lang.model.element.Modifier.FINAL
-import javax.lang.model.element.Modifier.PRIVATE
-import javax.lang.model.element.Modifier.PUBLIC
-import javax.lang.model.element.Modifier.STATIC
-import javax.lang.model.element.Modifier
-import java.io.StringWriter
-import java.io.FileWriter
-import java.io.File
 
-class AndroidHarnessWriter(val strWriter : StringWriter) {
-  
-  val writer : JavaWriter = new JavaWriter(strWriter);
+class AndroidHarnessWriter(val writer : JavaWriter) {
 
   def emitBegin() : Unit = { 
     writer.emitPackage(DroidelConstants.HARNESS_DIR)
@@ -59,18 +52,6 @@ class AndroidHarnessWriter(val strWriter : StringWriter) {
     writer.endMethod() // end main harness method
   }
   
-  def emitEnd() {
-    writer.endType() // end class
-  }
-  
-  def write(file : String, DEBUG : Boolean) {
-    val fileWriter = new FileWriter(s"${file}.java")
-    if (DEBUG) println("HARNESS: " + strWriter.toString())
-    fileWriter.write(strWriter.toString())    
-    // cleanup
-    strWriter.close()
-    writer.close()    
-    fileWriter.close()
-  }
+  def emitEnd() = writer.endType() // end class
   
 }
