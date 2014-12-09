@@ -1,6 +1,3 @@
-clean:
-	rm -rf out
-
 all:
 	rm -rf out/*
 	mkdir -p out
