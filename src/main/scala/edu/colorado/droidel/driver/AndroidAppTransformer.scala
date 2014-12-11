@@ -10,7 +10,7 @@ import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen._
-import edu.colorado.droidel.constants.AndroidLifecycle
+import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle}
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
@@ -549,6 +549,35 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
         case None => ()
       }
     })
+
+  def generateManifestDeclaredCallbackStubs(manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
+                                            cha : IClassHierarchy) : Unit = {
+    val activityType =
+      cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
+                                                 ClassUtil.walaifyClassName(AndroidConstants.ACTIVITY_TYPE)))
+    val contextType =
+      cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
+                                                 ClassUtil.walaifyClassName(AndroidConstants.CONTEXT_TYPE)))
+    val viewType =
+      cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
+                                                 ClassUtil.walaifyClassName(AndroidConstants.VIEW_TYPE)))
+    // sanity-check that set of registered cb's
+    manifestDeclaredCallbackMap.foreach(pair => {
+      val (clazz, cbSet) = pair
+      assert(cha.isAssignableFrom(activityType, clazz), s"Expecting $clazz to be Activity subclass")
+      cbSet.foreach(cb => {
+        assert(!cb.isStatic, s"Expected non-static method as manifest-registered cb, but got $cb")
+        assert(cb.getNumberOfParameters == 2, s"Expected exactly two parameters for manifest-registered cb $cb")
+        assert(cha.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0))),
+               s"Expected first argument of $cb to be a subtype of Context")
+        assert(cha.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1))),
+          s"Expected second argument of $cb to be a subtype of View")
+      })
+    })
+    new ManifestDeclaredCallbackStubGenerator()
+    .generateStubs(manifestDeclaredCallbackMap, MANIFEST_DECLARED_CALLBACKS_STUB_CLASS,
+                   MANIFEST_DECLARED_CALLBACKS_STUB_METHOD, androidJar.getAbsolutePath, appBinPath)
+  }
   
   val timer = new Timer
   timer.start() 
@@ -571,6 +600,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     } else {
       // generated app-specialized stubs for lifecycle types (Activity's, Service's, etc.)
       generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap, cha)
+      generateManifestDeclaredCallbackStubs(manifestDeclaredCallbackMap, cha)
       // generate a harness by using ActivityThread.main and fixing reflection problems via stub generation
       generateFrameworkDependentHarness()
     }

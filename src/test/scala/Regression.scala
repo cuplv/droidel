@@ -15,11 +15,11 @@ object Regression {
       assert(androidJar.exists(), s"Couldn't find Android JAR ${androidJar.getAbsolutePath()}")
       val testPrefix = s"src${File.separator}test${File.separator}resources${File.separator}regression${File.separator}"
 
-      val tests = Iterable("HoistTest1",
-        //"HoistTest2", // this uses a manifest-registered callback--can't handle for now
-        "ProtectedCallback",
-        // "LifecycleAndInterfaceCallback", // ditto on manifest-registered callback
-        "ViewLookup", "SupportFragment", "SystemService")
+      val tests =
+        Iterable("HoistTest1", "HoistTest2", "ProtectedCallback",
+                 //"LifecycleAndInterfaceCallback",
+                 "ViewLookup",
+                 "SupportFragment", "SystemService")
 
       // our tests should have all the library dependencies included, so we don't need JPhantom
       val useJPhantom = false

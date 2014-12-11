@@ -13,8 +13,9 @@ class AndroidFrameworkCreatedTypesStubGenerator extends AndroidStubGenerator {
 
   /** @param classes - list of types to inhabit
     * @param defaultRet - type to return if the input string to the stub does not match any of @param classes */
-  def generateStubs(classes: Iterable[IClass], stubClassName : String, stubMethodName : String, stubMethodRetType : String,
-                    defaultRet : Expression, cha : IClassHierarchy, androidJarPath : String, appBinPath : String) : File = {
+  def generateStubs(classes: Iterable[IClass], stubClassName : String, stubMethodName : String,
+                    stubMethodRetType : String, defaultRet : Expression, cha : IClassHierarchy, androidJarPath : String,
+                    appBinPath : String) : File = {
     println(s"Generating $stubMethodRetType stubs")
     writer.emitPackage(STUB_DIR)
     writer.beginType(stubClassName, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
@@ -38,7 +39,7 @@ class AndroidFrameworkCreatedTypesStubGenerator extends AndroidStubGenerator {
     writer.endType()
 
     val stubPath = s"$STUB_DIR${File.separator}$stubClassName"
-    val compilerOptions = List("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath")
+    val compilerOptions = Seq("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath")
     writeAndCompileStub(stubPath, compilerOptions)
   }
 }

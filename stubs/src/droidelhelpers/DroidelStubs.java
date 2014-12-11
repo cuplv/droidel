@@ -5,6 +5,7 @@ import android.app.Application;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.ContentProvider;
+import android.content.Context;
 import android.view.View;
 
 public interface DroidelStubs {
@@ -20,5 +21,6 @@ public interface DroidelStubs {
     public ContentProvider getContentProvider(String className);
 
     public View findViewById(int id);
-    
+
+    public void callManifestRegisteredCallback(Context ctx, View v);    
 }

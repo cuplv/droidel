@@ -3800,7 +3800,6 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
                             public void onClick(View v) {
                                 if (mHandler == null) {
                                     try {
-					// TODO: call out to stubs here
                                         mHandler = getContext().getClass().getMethod(handlerName,
                                                 View.class);
                                     } catch (NoSuchMethodException e) {
@@ -3815,16 +3814,16 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
                                     }
                                 }
 
-                                try {
-				    // TODO: call out to stubs here
-                                    mHandler.invoke(getContext(), View.this);
+				droidelStubs.callManifestRegisteredCallback(getContext(), View.this);
+                                /*try {
+				    mHandler.invoke(getContext(), View.this);
                                 } catch (IllegalAccessException e) {
                                     throw new IllegalStateException("Could not execute non "
                                             + "public method of the activity", e);
                                 } catch (InvocationTargetException e) {
                                     throw new IllegalStateException("Could not execute "
                                             + "method of the activity", e);
-                                }
+			        }*/
                             }
                         });
                     }
