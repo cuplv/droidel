@@ -10,8 +10,7 @@ import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen._
-import edu.colorado.droidel.constants.AndroidConstants._
-import edu.colorado.droidel.constants.AndroidLifecycle
+import edu.colorado.droidel.constants.{DroidelConstants, AndroidLifecycle}
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
@@ -31,7 +30,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                             useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true,
                             cleanupGeneratedFiles : Boolean = true,
-                            generateHarness : Boolean = true) {
+                            generateFrameworkIndependentHarness : Boolean = false) {
   require(androidJar.exists(), s"Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
@@ -82,7 +81,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
   // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
   private val callbackClasses =
-    Source.fromURL(getClass.getResource(s"/${CALLBACK_LIST}"))
+    Source.fromURL(getClass.getResource(s"${File.separator}${CALLBACK_LIST}"))
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
 
@@ -115,7 +114,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   // load Android libraries/our stubs in addition to the normal analysis scope loading 
   def makeAnalysisScope(useHarness : Boolean) : AnalysisScope = {
     val packagePath = manifest.packageName.replace('.', File.separatorChar)
-    val binPath = 
+
+    val binPath =
       if (useHarness) s"${appPath}${DROIDEL_BIN_SUFFIX}"
 		  else appBinPath
     val applicationCodePath = s"$binPath${File.separator}$packagePath"
@@ -126,8 +126,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       Some(f)
     } else None
-    
-    val layoutStubFilePath = List(binPath, STUB_DIR, s"${LAYOUT_STUB_CLASS}.class").mkString(File.separator)
    
     val manifestUsedActivitiesAndApplications = manifest.entries.foldLeft (Set.empty[String]) ((s, a) => 
       s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
@@ -137,32 +135,31 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val allFiles = Util.getAllFiles(new File(binPath)).filter(f => !f.isDirectory())
     allFiles.foreach(f => assert(!f.getName().endsWith(".jar"), 
                                  s"Not expecting JAR ${f.getAbsolutePath()} in app bin directory"))
-    allFiles.foreach(f => if (f.getName().endsWith(".class")) {
+    allFiles.foreach(f => if (f.getName().endsWith(".class"))
       // make sure code in the manifest-declared app package is loaded as application
-      if (f.getAbsolutePath().contains(applicationCodePath) ||
-          // if we have library code that is declared as an application Activity in the manifest, load in in the Application scope
+      if (f.getAbsolutePath.contains(applicationCodePath) ||
+          // if we have library code that is declared as an application Activity in the manifest, load as application
           manifestUsedActivitiesAndApplications.contains(f.getAbsolutePath) ||
-          // make sure the *layout* stubs are loaded as application. this is necessary because the layout stubs can allocate application-defined
-          // types (such as application-defined Fragments). if we load these stubs as library, WALA won't respect these allocations
-          // on the other hand, we want other stubs to be loaded as library because some (such as system service stubs) are used
-          // to instrument the code of the Android libraries themselves
-          f.getAbsolutePath().contains(layoutStubFilePath)) analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
-      // ensure the harness class (if any) is only loaded as application; we don't want to reload it as library
-      else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath()) analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
-    })
-            
+          // make sure all stubs are loaded as application
+          f.getAbsolutePath.contains(DroidelConstants.STUB_DIR) ||
+          f.getAbsolutePath.contains(DroidelConstants.PREWRITTEN_STUB_DIR))
+        analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
+      else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath())
+        analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
+    )
+
     // if we're using JPhantom, all of the application code and all non-core Java library code (including the Android library)
     // has been deposited into the app bin directory, which has already been loaded. otherwise, we need to load library code
     if (!useJPhantom || binPath == unprocessedBinPath) {
       // load JAR libraries in libs directory as library code
       libJars.foreach(f => analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(f)))
       // load Android JAR file as library code
-      analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(androidJar))      
-    } 
+      analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(androidJar))
+    }
     
     // load core Java libraries as library code
     // TODO: use or check for Android reimplementation of core libraries?
-    getJVMLibFile match { 
+    getJVMLibFile match {
       case Some(javaLibJar) => analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(javaLibJar))
       case None => sys.error("Can't find path to Java libraries. Exiting.")
     }
@@ -172,7 +169,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       case Some(stubFile) => analysisScope.addToScope(analysisScope.getPrimordialLoader, new JarFile(stubFile))
       case None => sys.error("Can't find WALA stubs. Exiting.")
     }
-    
+
+    analysisScope.addToScope(analysisScope.getPrimordialLoader(), new JarFile(androidJar))
     analysisScope
   }
 
@@ -376,8 +374,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       JavaUtil.mergeJars(Seq(instrumentedJar, originalJar), mergedJarName, duplicateWarning = false)
       val newJar = new File(mergedJarName)
       // rename merged JAR to original JAR name
-      // commenting out because Java.nio.Files requires Java 7
-      // Files.move(newJar.toPath(), originalJar.toPath(), StandardCopyOption.REPLACE_EXISTING)
       if (originalJar.exists()) originalJar.delete()
       newJar.renameTo(originalJar)
       toInstrument.delete() // cleanup JAR containing classes to instrument
@@ -390,47 +386,50 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   // make a map from framework class -> set of application classes implementing framework class)
   // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
   // TODO: curate by reasoning about callback registration. only need to include registered classes
-  private def makeFrameworkCreatedTypesMap(cha : IClassHierarchy) : Map[IClass,Set[IClass]] =
-    AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft (Map.empty[IClass,Set[IClass]]) ((m, c) =>
+  private def makeFrameworkCreatedTypesMap(cha : IClassHierarchy) : Map[IClass,Set[IClass]] = {
+    val m = AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft(Map.empty[IClass, Set[IClass]])((m, c) =>
       cha.computeSubClasses(c.getReference()).filter(c => !ClassUtil.isLibrary(c)) match {
-        case appSubclasses if appSubclasses.isEmpty => m
+        //case appSubclasses if appSubclasses.isEmpty => m
         case appSubclasses =>
           // we only handle public classes because we need to be able to instantiate them and call their callbakcs
           // callback extraction should handle most of the other cases
           // abstract classes cannot be registered for callbacks because they can't be instantiated
           appSubclasses.filter(c => c.isPublic() && !c.isAbstract() && !ClassUtil.isInnerOrEnum(c)) match {
-            case concreteSubclasses if concreteSubclasses.isEmpty => m
+            //case concreteSubclasses if concreteSubclasses.isEmpty => m
             case concreteSubclasses =>
               m + (c -> concreteSubclasses.toSet)
           }
       }
     )
 
+    // TODO: parse and check more than just Activity's. also, use the manifest to curate what we include above so we do
+    // not include too much
+    // sanity check our list of framework created types against the manifest
+    val allApplicationActs = m.values.flatten.toSet
+    manifest.activities.foreach(a => {
+      val typeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, ClassUtil.walaifyClassName(a.getPackageQualifiedName))
+      val clazz = cha.lookupClass(typeRef)
+      if (clazz == null || !allApplicationActs.contains(clazz)) {
+        println(s"Activity ${a.getPackageQualifiedName} Typeref $typeRef IClass $clazz declared in manifest, but is not in framework-created types map")
+        if (!useJPhantom) println(s"Recommended: use JPhantom! It is likely that $typeRef is being discarded due to a missing superclass that JPhantom can generate")
+        if (DEBUG) sys.error("Likely unsoundness, exiting")
+      }
+    })
+
+    m
+  }
+
   private def doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap : Map[IClass,Set[IClass]],
                                                   manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]],
                                                   layoutElems : Iterable[InhabitedLayoutElement],
                                                   stubMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
                                                   stubPaths : Iterable[File],
-                                                  cha : IClassHierarchy, generateHarness : Boolean = true) : File = {
-
-    // TODO: parse and check more than just Activity's. also, use the manifest to curate what we include above so we do
-    // not include to much
-    // sanity check our list of framework created types against the manifest
-    val allFrameworkCreatedTypes = frameworkCreatedTypesMap.values.flatten.toSet
-    manifest.activities.foreach(a => {        
-      val typeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, ClassUtil.walaifyClassName(a.getPackageQualifiedName))
-       val clazz = cha.lookupClass(typeRef)
-       if (clazz == null || !allFrameworkCreatedTypes.contains(clazz)) {
-         println(s"Activity ${a.getPackageQualifiedName} Typeref $typeRef IClass $clazz declared in manifest, but is not in framework-created types map")
-         if (!useJPhantom) println(s"Recommended: use JPhantom! It is likely that $typeRef is being discarded due to a missing superclass that JPhantom can generate")
-         if (DEBUG) sys.error("Likely unsoundness, exiting")
-       }
-    })
+                                                  cha : IClassHierarchy) : File = {
 
     // make a map fron application class -> set of lifecyle and manifest-declared callbacks on application class (+ all
     // on* methods). note that this map does *not* contain callbacks from implementing additional callback interfaces --
     // these are discovered in the harness generator itself.
-    val frameworkCreatedTypesCallbackMap = if (!generateHarness) Map.empty[IClass,Set[IMethod]] else
+    val frameworkCreatedTypesCallbackMap =
       frameworkCreatedTypesMap.foldLeft (Map.empty[IClass,Set[IMethod]]) ((m, entry) => {
       val possibleCallbacks = AndroidLifecycle.getCallbacksOnFrameworkCreatedType(entry._1, cha)
       entry._2.foldLeft (m) ((m, appClass) => {
@@ -459,18 +458,15 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     // via an instrumentation field
     // (2) make all callback methods in the appClassCbMap public so they can be called from the harness
     val (instrumentedJar, instrumentationFields) =
-      instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap,
-                                                     instrumentCbAllocs = generateHarness)
+      instrumentForApplicationAllocatedCallbackTypes(cha, frameworkCreatedTypesCallbackMap, stubMap)
     timer.printTimeTaken("Performing bytecode instrumentation")
 
-    if (generateHarness) {
-      println("Generating harness")
-      generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
-        instrumentationFields, stubPaths, instrumentedJar, cha)
-      timer.printTimeTaken("Generating and compiling harness")
-      // no need to keep the JAR; we have an output directory containing these files
-      if (instrumentedJar.exists()) instrumentedJar.delete()
-    }
+    println("Generating harness")
+    generateAndroidHarnessAndPackageWithApp(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
+                                            instrumentationFields, stubPaths, instrumentedJar, cha)
+    timer.printTimeTaken("Generating and compiling harness")
+    // no need to keep the JAR; we have an output directory containing these files
+    if (instrumentedJar.exists()) instrumentedJar.delete()
 
     instrumentedJar
   }
@@ -491,21 +487,31 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     // extract the JAR containing the instrumented class files
     Process(Seq("jar", "xvf", instrumentedJar.getAbsolutePath()), instrumentedBinDir).!!
 
-    // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
     val harnessGen = new AndroidHarnessGenerator(cha, instrumentationFields)
     harnessGen.makeSpecializedViewInhabitantCache(stubPaths)
     harnessGen.generateHarness(frameworkCreatedTypesCallbackMap, layoutElems, manifestDeclaredCallbackMap,
                                instrumentedBinDirPath, androidJar.getAbsolutePath())
 
-    // TODO: just compile them in the right place instead of moving?
     // move stubs in with the apps
-    val newStubDir = new File(s"$instrumentedBinDir${File.separator}${STUB_DIR}")
-    if (newStubDir.exists()) newStubDir.delete()    
-    val oldStubDir = new File(STUB_DIR)
-    if (oldStubDir.exists()) oldStubDir.renameTo(newStubDir)
+    Process(Seq("mv", s"$droidelHome${File.separator}$STUB_DIR", s"$instrumentedBinDir${File.separator}${STUB_DIR}")).!!
 
     instrumentedBinDir
   }
+
+  private def generateFrameworkDependentHarness() : File = {
+    // create fresh directory for instrumented bytecodes
+    val instrumentedBinDirPath = s"${appPath}${DROIDEL_BIN_SUFFIX}"
+    Process(Seq("cp", "-r", appBinPath, instrumentedBinDirPath)).!!
+
+    // move stubs in with the instrumented bytecodes
+    Process(Seq("mv", s"$droidelHome${File.separator}$STUB_DIR", s"$instrumentedBinDirPath${File.separator}${STUB_DIR}")).!!
+
+    // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
+    val harnessGen = new SimpleAndroidHarnessGenerator()
+    harnessGen.generateHarness(instrumentedBinDirPath, androidJar.getAbsolutePath)
+    new File(instrumentedBinDirPath)
+  }
+
 
   def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) :
     (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], Iterable[InhabitedLayoutElement], List[File]) = {
@@ -513,7 +519,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val layoutStubGenerator = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath, appBinPath)
     val (stubMap, generatedStubs) = layoutStubGenerator.generateStubs()
     val (finalStubMap, stubPaths) =
-      new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
+      if (generateFrameworkIndependentHarness) (stubMap, generatedStubs)
+      else new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
     timer.printTimeTaken("Generating and compiling stubs")
     (finalStubMap, layoutStubGenerator.getInhabitedElems, stubPaths)
   }
@@ -528,36 +535,18 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   def generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap : Map[IClass,Set[IClass]],
-                                         cha : IClassHierarchy) : Unit = {
-    // generate Application stubs
+                                         cha : IClassHierarchy) : Unit =
     frameworkCreatedTypesMap.foreach(pair => {
-      val className = pair._1.getReference.getName.toString
+      val className = ClassUtil.deWalaifyClassName(pair._1)
       val appImpls = pair._2
       val gen = new AndroidFrameworkCreatedTypesStubGenerator()
-
-      if (className == ClassUtil.walaifyClassName(APPLICATION_TYPE))
-        gen.generateStubs(appImpls, APPLICATION_STUB_CLASS, APPLICATION_STUB_METHOD, APPLICATION_TYPE,
-                          s"new ${APPLICATION_TYPE}()", cha, androidJar.getAbsolutePath, appBinPath)
-      else if (className == ClassUtil.walaifyClassName(ACTIVITY_TYPE))
-        gen.generateStubs(appImpls, ACTIVITY_STUB_CLASS, ACTIVITY_STUB_METHOD, ACTIVITY_TYPE, s"new ${ACTIVITY_TYPE}()",
-                          cha, androidJar.getAbsolutePath, appBinPath)
-      else if (className == ClassUtil.walaifyClassName(SERVICE_TYPE))
-        gen.generateStubs(appImpls, SERVICE_STUB_CLASS, SERVICE_STUB_METHOD, SERVICE_TYPE, "null", cha,
-                          androidJar.getAbsolutePath, appBinPath)
-      else if (className == ClassUtil.walaifyClassName(BROADCAST_RECEIVER_TYPE))
-        gen.generateStubs(appImpls, BROADCAST_RECEIVER_STUB_CLASS, BROADCAST_RECEIVER_STUB_METHOD,
-                          BROADCAST_RECEIVER_TYPE, "null", cha, androidJar.getAbsolutePath,
-                          appBinPath)
-      else if (className == ClassUtil.walaifyClassName(CONTENT_PROVIDER_TYPE))
-        gen.generateStubs(appImpls, CONTENT_PROVIDER_STUB_CLASS, CONTENT_PROVIDER_STUB_METHOD, CONTENT_PROVIDER_TYPE,
-                          "null", cha, androidJar.getAbsolutePath, appBinPath)
-      else if (className == ClassUtil.walaifyClassName(FRAGMENT_TYPE))
-        println("Warning: generating fragment stubs unimp")
-      else if (className == ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE))
-        println("Warning: generating app fragment stubs unimp")
-      else sys.error(s"unsupported type $className")
+      TYPE_STUBS_MAP.get(className) match {
+        case Some((stubClass, stubMethod, defaultVal)) =>
+          gen.generateStubs(appImpls, stubClass, stubMethod, className, defaultVal, cha, androidJar.getAbsolutePath,
+                            appBinPath)
+        case None => ()
+      }
     })
-  }
   
   val timer = new Timer
   timer.start() 
@@ -571,25 +560,17 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val (layoutMap, manifestDeclaredCallbackMap) = parseLayout(cha)
     // generate app-specialized stubs for layout
     val (stubMap, inhabitedLayoutElems, stubPaths) = generateStubs(layoutMap, cha)
-    // generated app-specialized stub for lifecycle types (Activity's, Service's, etc.)
     val frameworkCreatedTypesMap = makeFrameworkCreatedTypesMap(cha)
-    generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap, cha)
-    // inject the stubs via bytecode instrumentation and generate app-specialized harness
-    val instrumentedJar =
-      doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap, manifestDeclaredCallbackMap,
-                                          inhabitedLayoutElems, stubMap, stubPaths, cha,
-                                          generateHarness = generateHarness)
 
-    if (!generateHarness) {
-      val droidelHandwrittenStubsDir = "stubs"
-      val appJarName = "app.jar"
-      instrumentedJar.renameTo(new File(s"$droidelHome${File.separator}$appJarName"))
-      // compile generated stubs against the Android library and the app
-      Process(Seq("make", "-C", droidelHandwrittenStubsDir)).!!
-      val compilationOutput = new File(Util.toCSVStr(Seq(droidelHome, droidelHandwrittenStubsDir, "out", appJarName),
-        File.separator))
-      assert(compilationOutput.exists(),
-        "Compilation of stubs against library and app failed--run make -C stubs and try fixing erorrs manually")
+    if (generateFrameworkIndependentHarness) {
+      // inject the stubs via bytecode instrumentation and generate app-specialized harness
+      doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap, manifestDeclaredCallbackMap,
+                                          inhabitedLayoutElems, stubMap, stubPaths, cha)
+    } else {
+      // generated app-specialized stubs for lifecycle types (Activity's, Service's, etc.)
+      generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap, cha)
+      // generate a harness by using ActivityThread.main and fixing reflection problems via stub generation
+      generateFrameworkDependentHarness()
     }
 
     // cleanup generated stub and harness source files
@@ -598,16 +579,17 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       if (stubDir.exists()) Util.deleteAllFiles(stubDir) 
       val harnessDir = new File(HARNESS_DIR)
       if (harnessDir.exists()) Util.deleteAllFiles(harnessDir)         
-    }       
+    }
   }
 
-  private def getJVMLibFile : Option[File] = {    
+  private def getJVMLibFile : Option[File] = {
     val PATH = System.getProperty("java.home")
-    List(new File(PATH + "/lib/rt.jar"), new File(PATH + "/../Classes/classes.jar")).find(f => f.exists())
+    List(new File(Seq(PATH, "lib", "rt.jar").mkString(File.separator)),
+         new File(Seq(PATH, "..", "Classes", "classes.jar").mkString(File.separator))).find(f => f.exists())
   }
 
   def getWALAStubs : Option[File] = {
-    val f = new File(s"${DROIDEL_HOME}/config/primordial.jar.model")
+    val f = new File(Seq(DROIDEL_HOME, "config" , "primordial.jar.model").mkString(File.separator))
     if (f.exists()) Some(f) else None
   }
     

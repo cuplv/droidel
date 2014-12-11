@@ -2,6 +2,7 @@ package edu.colorado.droidel.constants
 
 import com.ibm.wala.types.TypeReference
 import com.ibm.wala.types.ClassLoaderReference
+import AndroidConstants._
 import java.io.File
 
 object DroidelConstants {
@@ -18,6 +19,7 @@ object DroidelConstants {
   val DROIDEL_BIN_SUFFIX = s"bin${File.separator}droidel_classes"
   
   // default locations for generated stubs and harnesses
+  val PREWRITTEN_STUB_DIR = "droidelhelpers"
   val STUB_DIR = "generatedstubs"
   val LAYOUT_STUB_CLASS = "GeneratedAndroidLayoutStubs"
   val SYSTEM_SERVICE_STUB_CLASS = "GeneratedAndroidSystemServiceStubs"
@@ -32,6 +34,16 @@ object DroidelConstants {
   val BROADCAST_RECEIVER_STUB_METHOD = "getBroadcastReceiver"
   val CONTENT_PROVIDER_STUB_CLASS = "GeneratedContentProviderStubs"
   val CONTENT_PROVIDER_STUB_METHOD = "getContentProvider"
+
+  private val NULL = "null"
+  // map from a framework-created type to its stub class, stub method and a string representing its default value
+  val TYPE_STUBS_MAP =
+    Map(APPLICATION_TYPE -> (APPLICATION_STUB_CLASS, APPLICATION_STUB_METHOD, s"new $APPLICATION_TYPE()"),
+        ACTIVITY_TYPE -> (ACTIVITY_STUB_CLASS, ACTIVITY_STUB_METHOD, s"new $ACTIVITY_TYPE()"),
+        SERVICE_TYPE -> (SERVICE_STUB_CLASS, SERVICE_STUB_METHOD, NULL),
+        BROADCAST_RECEIVER_TYPE -> (BROADCAST_RECEIVER_STUB_CLASS, BROADCAST_RECEIVER_STUB_METHOD, NULL),
+        CONTENT_PROVIDER_TYPE -> (CONTENT_PROVIDER_STUB_CLASS, CONTENT_PROVIDER_STUB_METHOD, NULL)
+       )
 
   val HARNESS_DIR = "generatedharness"
   val HARNESS_CLASS = "GeneratedAndroidHarness" 

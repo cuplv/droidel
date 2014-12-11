@@ -16,6 +16,8 @@
 
 package android.view;
 
+import static android.app.ActivityThread.droidelStubs;
+
 import android.content.ClipData;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -17463,7 +17465,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
     public static View inflate(Context context, int resource, ViewGroup root) {
         LayoutInflater factory = LayoutInflater.from(context);
         //return factory.inflate(resource, root);
-	return generatedstubs.GeneratedAndroidLayoutStubs.findViewById(resource);
+	return droidelStubs.findViewById(resource);
     }
 
     /**

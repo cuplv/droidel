@@ -11,15 +11,16 @@ object Main {
     val ANDROID_JAR = "-android_jar"
     val NO_JPHANTOM = "-no_jphantom"
     val NO_INSTRUMENT = "-no_instrument"
-    val NO_HARNESS = "-no_harness"
+    val FRAMEWORKLESS_HARNESS = "-frameworkless_harness"
     val DROIDEL_HOME = "-droidel_home"
     val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
     	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
-    val flags = Map(s"$NO_JPHANTOM" -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false),
-                    s"$NO_INSTRUMENT" -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false),
-                    s"$NO_HARNESS" -> ("Don't generate an external harness-use ActivityThread.main instead", false))
+    val flags = Map(NO_JPHANTOM -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false),
+                    NO_INSTRUMENT -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false),
+                    FRAMEWORKLESS_HARNESS ->
+                      ("Generate harness usable outside of the Android framework rather than using ActivityThread.main", false))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh $APP <path_to_app> $ANDROID_JAR <path_to_jar> [flags]")
@@ -63,10 +64,14 @@ object Main {
       val droidelHome = parsedArgs.getOrElse(DROIDEL_HOME, ".")
       val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
       val noInstrument = parsedFlags.getOrElse(NO_INSTRUMENT, flags(NO_INSTRUMENT)._2)
-      val noHarness = parsedFlags.getOrElse(NO_HARNESS, flags(NO_HARNESS)._2)
+      val frameworklessHarness = parsedFlags.getOrElse(FRAMEWORKLESS_HARNESS, flags(FRAMEWORKLESS_HARNESS)._2)
 
-      val appFile = new File(app) 
+      val appFile = new File(app)
+      val jarFile = new File(androidJar)
       assert(appFile.exists(), s"Couldn't find input application $app")
+      assert(jarFile.exists(), s"Couldn't find input JAR file $androidJar")
+      assert(androidJar.startsWith("droidel"),
+             s"Android JAR's used by Droidel must be preprocessed; see the Setting up an Android framework JAR section of the REAMDE")
       // convert the input from an apk into our desired format if necessary
       val droidelInput = if (appFile.isFile())            
         // decode the app resources and decompile the dex bytecodes to Java bytecodes
@@ -76,7 +81,7 @@ object Main {
       val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
                                                   useJPhantom = !noJphantom,
                                                   instrumentLibs = !noInstrument,
-                                                  generateHarness = !noHarness)
+                                                  generateFrameworkIndependentHarness = frameworklessHarness)
 
       transformer.transformApp()
     }

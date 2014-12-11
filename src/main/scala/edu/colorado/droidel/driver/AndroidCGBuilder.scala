@@ -1,5 +1,7 @@
 package edu.colorado.droidel.driver
 
+import java.io.File
+
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisOptions.ReflectionOptions
 import com.ibm.wala.ipa.callgraph.impl.{ArgumentTypeEntrypoint, ClassHierarchyClassTargetSelector, ClassHierarchyMethodTargetSelector}
@@ -12,9 +14,10 @@ import edu.colorado.walautil.WalaAnalysisResults
 
 import scala.collection.JavaConversions._
 
-class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, harnessMethod : String) {
+class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "Landroid/app/ActivityThread",
+                       harnessMethod : String = "main") {
   
-  val cha = ClassHierarchy.make(analysisScope)    
+  val cha = ClassHierarchy.make(analysisScope)
   
   def makeAndroidCallGraph() : WalaAnalysisResults = {    
     val entrypoints = makeEntrypoints    
@@ -24,9 +27,9 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, har
     // finally, build the call graph and extract the points-to analysis
     val cgBuilder = makeCallGraphBuilder(options, cache)
     // very important to do this *after* creating the call graph builder
-    addBypassLogic(options, analysisScope, cha)   
-    options.setSelector(makeClassTargetSelector)
-    options.setSelector(makeMethodTargetSelector)    
+    //addBypassLogic(options, analysisScope, cha)
+    //options.setSelector(makeClassTargetSelector)
+    //options.setSelector(makeMethodTargetSelector)
     new WalaAnalysisResults(cgBuilder.makeCallGraph(options, null),
 			                      cgBuilder.getPointerAnalysis())
   }     
@@ -57,10 +60,12 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, har
   def makeCallGraphBuilder(options : AnalysisOptions, cache : AnalysisCache) : CallGraphBuilder = {
     assert(options.getMethodTargetSelector() == null, "Method target selector should not be set at this point.")
     assert(options.getClassTargetSelector() == null, "Class target selector should not be set at this point.")
+    com.ibm.wala.ipa.callgraph.impl.Util.addDefaultSelectors(options, cha)
     addBypassLogic(options, analysisScope, cha)
     val defaultInstancePolicy = ZeroXInstanceKeys.ALLOCATIONS | ZeroXInstanceKeys.SMUSH_MANY | 
                                 ZeroXInstanceKeys.SMUSH_STRINGS | ZeroXInstanceKeys.SMUSH_THROWABLES
-    new ZeroXContainerCFABuilder(cha, options, cache, makeContextSelector(options, cha), makeContextInterpreter(options, cache), defaultInstancePolicy)
+    new ZeroXContainerCFABuilder(cha, options, cache, makeContextSelector(options, cha),
+                                 makeContextInterpreter(options, cache), defaultInstancePolicy)
   }
   
   // override to specify custom context interpreters and selectors
@@ -70,7 +75,11 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String, har
   def makeClassTargetSelector() : ClassTargetSelector =new ClassHierarchyClassTargetSelector(cha)  
   
   def addBypassLogic(options : AnalysisOptions, analysisScope : AnalysisScope, cha : IClassHierarchy) : Unit = {
-    com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec(s"${DroidelConstants.DROIDEL_HOME}/config/natives.xml")
-    com.ibm.wala.ipa.callgraph.impl.Util.addDefaultBypassLogic(options, analysisScope, classOf[com.ibm.wala.ipa.callgraph.impl.Util].getClassLoader(), cha)
+    val nativeSpec = new File(s"${DroidelConstants.DROIDEL_HOME}/config/natives.xml")
+    assert(nativeSpec.exists(), s"Can't find native spec ${nativeSpec.getAbsolutePath}")
+    com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec(nativeSpec.getAbsolutePath)
+    //com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec("config/natives.xml")
+    com.ibm.wala.ipa.callgraph.impl.Util.addDefaultBypassLogic(options, analysisScope,
+      classOf[com.ibm.wala.ipa.callgraph.impl.Util].getClassLoader(), cha)
   }
 }

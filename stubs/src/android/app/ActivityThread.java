@@ -16,6 +16,9 @@
 
 package android.app;
 
+import droidelhelpers.DroidelStubs;
+import droidelhelpers.Nondet;
+
 import android.app.backup.BackupAgent;
 import android.content.BroadcastReceiver;
 import android.content.ComponentCallbacks2;
@@ -110,7 +113,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Random;
 import java.util.TimeZone;
 import java.util.regex.Pattern;
 
@@ -2398,7 +2400,7 @@ public final class ActivityThread {
             data.intent.setExtrasClassLoader(cl);
             data.setExtrasClassLoader(cl);
             //receiver = (BroadcastReceiver)cl.loadClass(component).newInstance();
-	    receiver = (BroadcastReceiver) generatedstubs.GeneratedBroadcastReceiverStubs.getBroadcastReceiver(component);
+	    receiver = (BroadcastReceiver) droidelStubs.getBroadcastReceiver(component);
         } catch (Exception e) {
             if (DEBUG_BROADCAST) Slog.i(TAG,
                     "Finishing failed broadcast to " + data.intent.getComponent());
@@ -2557,7 +2559,7 @@ public final class ActivityThread {
         try {
             java.lang.ClassLoader cl = packageInfo.getClassLoader();
             //service = (Service) cl.loadClass(data.info.name).newInstance();
-	    service = (Service) generatedstubs.GeneratedServiceStubs.getService(data.info.name);
+	    service = (Service) droidelStubs.getService(data.info.name);
         } catch (Exception e) {
             if (!mInstrumentation.onException(service, e)) {
                 throw new RuntimeException(
@@ -4784,7 +4786,7 @@ public final class ActivityThread {
                 final java.lang.ClassLoader cl = c.getClassLoader();
                 //localProvider = (ContentProvider)cl.
 		//loadClass(info.name).newInstance();
-		localProvider = generatedstubs.GeneratedContentProviderStubs.getContentProvider(info.name);
+		localProvider = droidelStubs.getContentProvider(info.name);
                 provider = localProvider.getIContentProvider();
                 if (provider == null) {
                     Slog.e(TAG, "Failed to instantiate class " +
@@ -4987,19 +4989,12 @@ public final class ActivityThread {
         public void addText(String tag, String data) {
             dropBox.addText(tag, data);
         }
-    }
-    
-    private static Random r = new Random();
-    
-    private static int nondetInt() {
-	return r.nextInt();
-    }
+    }    
 
-    private static boolean nondet() {
-	return r.nextBoolean();
-    }
+    public static DroidelStubs droidelStubs;
 
-    public static void main(String[] args) {
+    public static void main(DroidelStubs stubs) {
+	droidelStubs = stubs;
         SamplingProfilerIntegration.start();
 
         // CloseGuard defaults to true and can be quite spammy.  We
@@ -5037,10 +5032,10 @@ public final class ActivityThread {
 	// for each activity
 	ApplicationThread appThread = thread.getApplicationThread();
 	try {
-	    while (nondet()) {
+	    while (Nondet.nondetBool()) {
 		Parcel data = Parcel.obtain();
 		Parcel reply = Parcel.obtain();
-		appThread.onTransact(nondetInt(), data, reply, nondetInt());
+		appThread.onTransact(Nondet.nondetInt(), data, reply, Nondet.nondetInt());
 	    }
 	} catch (RemoteException e) {}
 	// end for each activity

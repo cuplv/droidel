@@ -16,13 +16,15 @@ import scala.collection.JavaConversions._
 
 /** class for identifying "absurdities", or likely soundness issues in a callgraph/points-to analysis */
 class AbsurdityIdentifier(harnessClassName : String) {
-  
-  def isGeneratedMethod(m : IMethod) : Boolean = { 
+
+  def isGeneratedMethod(m : MethodReference) : Boolean = {
     val className = m.getDeclaringClass().getName().toString()
-    /*className.startsWith(s"L${DroidelConstants.STUB_DIR}") ||
-    className.startsWith(s"L${DroidelConstants.HARNESS_DIR}")*/ 
+    className.startsWith(s"L${DroidelConstants.STUB_DIR}") ||
+    className.startsWith(s"L${DroidelConstants.PREWRITTEN_STUB_DIR}") ||
     className == harnessClassName
-  } 
+  }
+
+  def isGeneratedMethod(m : IMethod) : Boolean = isGeneratedMethod(m.getReference)
 
   // TODO: factor these out to a PtUtil class in WalaUtil project
   def makeLPK(valueNum : Int, n : CGNode, hm : HeapModel) : LocalPointerKey =
@@ -208,8 +210,8 @@ class AbsurdityIdentifier(harnessClassName : String) {
     case null => Nil
       // collect all invokes with non-primitive return values such that the pts-to set of the return value is empty
     case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 
-      case (i : SSAInvokeInstruction, index : Int) if i.hasDef() && i.getDeclaredResultType().isReferenceType() && 
-        getPt(makeLPK(i.getDef(), n, hm), hg).size == 0 =>
+      case (i : SSAInvokeInstruction, index : Int) if i.hasDef() && i.getDeclaredResultType().isReferenceType() &&
+        !isGeneratedMethod(i.getDeclaredTarget) && getPt(makeLPK(i.getDef(), n, hm), hg).size == 0 =>
           val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
           val retvalName = getLocalName(index, i.getDef(), ir)
           (i.getDeclaredTarget(), bcIndex, srcLine, retvalName)

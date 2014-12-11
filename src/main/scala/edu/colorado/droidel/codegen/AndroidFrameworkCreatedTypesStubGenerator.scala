@@ -32,7 +32,8 @@ class AndroidFrameworkCreatedTypesStubGenerator extends AndroidStubGenerator {
       writer.emitStatement(s"return $ret")
       writer.endControlFlow()
     })
-    writer.emitStatement(s"else return $defaultRet")
+    if (firstPass) writer.emitStatement(s"return $defaultRet")
+    else writer.emitStatement(s"else return $defaultRet")
     writer.endMethod()
     writer.endType()
 

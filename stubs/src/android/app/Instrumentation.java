@@ -16,6 +16,8 @@
 
 package android.app;
 
+import static android.app.ActivityThread.droidelStubs;
+
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
@@ -972,7 +974,7 @@ public class Instrumentation {
     public Application newApplication(ClassLoader cl, String className, Context context)
             throws InstantiationException, IllegalAccessException, 
             ClassNotFoundException {
-	return generatedstubs.GeneratedApplicationStubs.getApplication(className);
+	return droidelStubs.getApplication(className);
         //return newApplication(cl.loadClass(className), context);
     }
     
@@ -988,7 +990,7 @@ public class Instrumentation {
     static public Application newApplication(Class<?> clazz, Context context)
             throws InstantiationException, IllegalAccessException, 
             ClassNotFoundException {
-	Application app = generatedstubs.GeneratedApplicationStubs.getApplication(clazz.getName());
+	Application app = droidelStubs.getApplication(clazz.getName());
         //Application app = (Application)clazz.newInstance();
         app.attach(context);
         return app;
@@ -1036,7 +1038,7 @@ public class Instrumentation {
             Object lastNonConfigurationInstance) throws InstantiationException, 
             IllegalAccessException {
         //Activity activity = (Activity)clazz.newInstance();
-	Activity activity = generatedstubs.GeneratedActivityStubs.getActivity(clazz.getName());
+	Activity activity = droidelStubs.getActivity(clazz.getName());
         ActivityThread aThread = null;
         activity.attach(context, aThread, this, token, application, intent,
                 info, title, parent, id,
@@ -1062,7 +1064,7 @@ public class Instrumentation {
             throws InstantiationException, IllegalAccessException,
             ClassNotFoundException {
 	
-	return generatedstubs.GeneratedActivityStubs.getActivity(className);
+	return droidelStubs.getActivity(className);
         //return (Activity)cl.loadClass(className).newInstance();
     }
 

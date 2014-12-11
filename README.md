@@ -3,22 +3,19 @@
 Droidel
 =======
 
-Droidel is a model of the Android framework that simplifies static analysis of Android apps. Droidel takes an Android application as input and generates a Java bytecode harness for the analysis to use as an entrypoint. Droidel also generates application-specialized stubs and injects them directly into the application bytecode. The result is a transformed app ready to be analyzed by any Java program analysis framework ([WALA](http://wala.sourceforge.net/wiki/index.php/Main_Page), [Soot](http://www.sable.mcgill.ca/soot/), [Chord](http://pag.gatech.edu/chord), etc.).
+Droidel is a model of the Android framework that simplifies static analysis of Android apps. It works by examining app code and using it to explicate tricky uses of reflection in the Android framework. The result is a transformed app with a single entrypoint ready to be analyzed by any Java program analysis framework ([WALA](http://wala.sourceforge.net/wiki/index.php/Main_Page), [Soot](http://www.sable.mcgill.ca/soot/), [Chord](http://pag.gatech.edu/chord), etc.).
 
 
 What Android features does Droidel handle?
 ------------------------------------------
-(1) Control flow via callbacks.  
-Android is an event-driven system whose primary mechanism for control flow is the invocation of application-defined callback methods by the framework. The framework code that invokes callbacks is complicated and uses reflection heavily, which makes it opaque to most static analyzers. Droidel generates a Java bytecode harness that explicates this control flow. It identifies lifecycle callbacks (e.g., [`Activity.onCreate()`](http://developer.android.com/reference/android/app/Activity.html#onCreate(android.os.Bundle))), callbacks registered by extending special callback interfaces (e.g., [`OnClickListener`](http://developer.android.com/reference/android/view/View.OnClickListener.html)), and callbacks registered in the application manifest. Droidel generates a harness that invokes each of these callbacks on the appropriate object instance, yielding a single entrypoint for a static analysis to use.
+(1) Framework-created types.  
+Android is an event-driven system whose primary mechanism for control flow is the invocation of application-overriden callback methods by the framework. The framework code that invokes callbacks is complicated and uses reflection heavily. Droidel understands what application types the framework will instantiate reflectively. It uses this information to inject stubs into the framework that explicate what types are allocated via reflection. 
 
+(2) Harness generation.  
+Droidel generates a harness that can be used as a single entrypoint for an Android app. The harness is a slightly modified version of the framework's `ActivityThread.main` method. The important changes are that the modified `main` calls Droidel's stubs for framework-created types to de-obfuscate reflection, and it adds all possible externally generated events to the main `Looper` of the app.
 
-(2) Layout inflation.  
+(3) Layout inflation.  
 Most Android applications define their GUI structure in specialized layout XML files. At runtime, the Android framework *inflates* the GUI by parsing the XML and instantiating each XML-declared element via reflection. Applications can then look up and manipulate the GUI elements via methods such as [`findViewById`](http://developer.android.com/reference/android/app/Activity.html#findViewById(int)). The inflation process and the correspond look up methods are also opaque to most static analyzers. Droidel parses the layout XML to determine the element types that may be allocated during inflation and their id's. Droidel then generates Java bytecodes stubs that explicate the allocations performed during layout inflation and generates stubs for `findViewById` and `findFragmentById` that return the appropriate layout element given its id. Finally, Droidel injects the stubs directly into the application code by using WALA's Shrike bytecode instrumentation utility. For the common case where `findViewById` is called with a constant identifier (e.g, `findViewById(R.id.MainActivity)`), Droidel injects a *specialized* stub that returns only the layout element whose identifier is `R.id.MainActivity`, thereby increasing precision.
-
-
-(3) System services.
-Utilities for performing many permission-sensitive operations (e.g., `NotificationManager`, `LocationManager`) are exposed via the [`getSystemService`](http://developer.android.com/reference/android/content/Context.html#getSystemService(java.lang.String)) method, which uses reflection. Failure to handle this reflection will cause many permission-sensitive methods to be absent from the call graph. Droidel handles this problem by generating stubs for `getSystemService` and injecting the stubs into both application and library code (including the Android library) using Shrike bytecode instrumentation.
-
 
 
 Installation
@@ -35,19 +32,11 @@ Installing Droidel requires Scala 2.10.2 or later, sbt, maven, and ant. Droidel 
     sbt compile
 
 
-Android JARs
-------------
-In order to run Droidel, you need a JAR file containing the bytecodes for the Android framework. A good sources for Android JARs is [GrepCode](http://grepcode.com/project/repository.grepcode.com/java/ext/com.google.android/android/). Do not use the JARs packaged with the Android SDK. These JARs only contain type-correct stubs for applications to compile against; they are not suitable for static analysis of the Android framework.
+Setting up an Android framework JAR
+-----------------------------------
+In order to run Droidel, you first need to generate a JAR file for the Android framework that has been injected with Droidel's stub interfaces. Do this byrunning `compile_stubs.sh <android_jar>` in the `stubs` directory. The resulting injected JAR will be places in `stubs/out/droidel_<android_jar>`. This JAR should be passed to the `droidel.sh` script the `-android_jar` argument to the 
 
-
-Running regression tests
-------------------------
-
-To be sure everything was installed correctly, it is probably a good idea to run Droidel's regression tests:
-   
-	sbt "test:run <path to an android JAR>"
-
-The quotes are important. These should complete without failing any assertions. 
+Droidel has been tested using the [Android 4.2.2](http://grepcode.com/snapshot/repository.grepcode.com/java/ext/com.google.android/android/4.2.2_r1) JAR. Other versions of Android may require slight adjustments to the stubs in order to compile.
 
 
 Running Droidel
@@ -79,11 +68,11 @@ or
 
 	sbt "run -app <APP> -android_jar <JAR>"
 
-Droidel will generate a harness and stubs and produce instrumented copies of the app's bytecodes. The original bytecodes of the app will remain unchanged; Droidel's output is placed in APP/bin/droidel_classes. This directory will also contain the bytecodes for the Android JAR specified on the command line and the bytecodes of any libraries in the APP/libs directory.
+The Android JAR passed here should be the one you generated using the process described in the "Setting up an Android framework JAR" section. Droidel will run JPhantom on the app and generate a harness and specialized stubs. The original bytecodes of the app will remain unchanged; Droidel's output is placed in `<APP>/bin/droidel_classes`. This directory will also contain the bytecodes for the Android JAR specified on the command line and the bytecodes of any libraries in the `<APP>/libs` directory.
 
-The most important output is Droidel's harness class; this is placed in APP/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.class. To use Droidel in a static analysis framework such as WALA or Soot, simply load all of the code in APP/bin/droidel_classes into the analyzer and use `GeneratedAndroidHarness.androidMain()` as the entrypoint for analysis. Because droidel_classes contains all of the Android library bytecodes and bytecodes of all other libraries the app depends on, there should be no need to load any additional code other than the core Java libraries. For an example of how to build a call graph using Droidel's output in WALA, see how [`AndroidCGBuilder`](https://github.com/cuplv/droidel/blob/master/src/main/scala/edu/colorado/droidel/driver/AndroidCGBuilder.scala) is used in the regression [tests](https://github.com/cuplv/droidel/blob/master/src/test/scala/Regression.scala).
+The most important output is Droidel's harness class; this is placed in `<APP>/bin/droidel_classes/generatedHarness/GeneratedAndroidHarness.class`. To use Droidel in a static analysis framework such as WALA or Soot, simply load all of the code in `<APP>/bin/droidel_classes` into the analyzer and use `GeneratedAndroidHarness.androidMain()` as the entrypoint for analysis. Because `droidel_classes` contains all of the Android library bytecodes and bytecodes of all other libraries the app depends on, there should be no need to load any additional code other than the core Java libraries. For an example of how to build a call graph using Droidel's output in WALA, see how [`AndroidCGBuilder`](https://github.com/cuplv/droidel/blob/master/src/main/scala/edu/colorado/droidel/driver/AndroidCGBuilder.scala) is used in the regression [tests](https://github.com/cuplv/droidel/blob/master/src/test/scala/Regression.scala).
 
-Droidel generates its harness and stubs at the Java source level and then compiles them against the application, its libraries, and the Android framework. For convenience, it preserves these artifacts so that they be be manually inspected and modified/recompiled if necessary. The harness source code is located at APP/bin/droidel_classes/generatedharness/GeneratedAndroidHarness.java, and the stub source code is located in APP/bin/droidel_classes/generatedstubs.
+Droidel generates its harness and stubs at the Java source level and then compiles them against the application, its libraries, and the Android framework. For convenience, it preserves these artifacts so that they be be manually inspected and modified/recompiled if necessary. The harness source code is located at `<APP>/bin/droidel_classes/generatedharness/GeneratedAndroidHarness.java`, and the stub source code is located in `<APP>/bin/droidel_classes/generatedstubs`.
 
 
 Known limitations
@@ -100,7 +89,7 @@ Creating a reasonable framework model for Android is difficult, and Droidel is n
 Troubleshooting
 ---------------
 Problem: Droidel fails with "Couldn't compile stub file" or "Couldn't compile harness" message.  
-Solution: Make sure that you are using the appropriate version of the Android JAR for your target application. Check the android:minSdkVersion and/or android:targetSdkVersion in AndroidManifest.xml to see what version of the framework is expected. If all else fails, try manually fixing the compiler errors and re-compiling the stubs and/or harness.
+Solution: Make sure that you are using the appropriate version of the Android JAR for your target application. Check the android:minSdkVersion and/or android:targetSdkVersion in AndroidManifest.xml to see what version of the framework is expected. Also, make sure that you have followed the instructions in the "Setting up an Android framework JAR" section. If all else fails, try manually fixing the compiler errors and re-compiling the stubs and/or harness.
 
 Problem: Droidel fails with "com.ibm.wala.shrikeCT.InvalidClassFileException" error message.  
 Solution: Droidel uses WALA and Shrike, which cannot currently parse bytecodes produced by the Java 8 compiler. Try switching your default Java version to Java 7 or earlier.
