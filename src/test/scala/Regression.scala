@@ -2,7 +2,7 @@ import java.io.File
 
 import edu.colorado.droidel.constants.DroidelConstants
 import edu.colorado.droidel.driver.{AbsurdityIdentifier, AndroidAppTransformer, AndroidCGBuilder}
-import edu.colorado.walautil.{ClassUtil, Timer, Util}
+import edu.colorado.walautil.{Timer, Util}
 
 import scala.collection.JavaConversions._
 
@@ -15,11 +15,11 @@ object Regression {
       assert(androidJar.exists(), s"Couldn't find Android JAR ${androidJar.getAbsolutePath()}")
       val testPrefix = s"src${File.separator}test${File.separator}resources${File.separator}regression${File.separator}"
 
-      val tests = List("HoistTest1",
+      val tests = Iterable("HoistTest1",
         //"HoistTest2", // this uses a manifest-registered callback--can't handle for now
-        "ProtectedCallback", "ViewLookup",
+        "ProtectedCallback",
         // "LifecycleAndInterfaceCallback", // ditto on manifest-registered callback
-        "SupportFragment", "SystemService")
+        "ViewLookup", "SupportFragment", "SystemService")
 
       // our tests should have all the library dependencies included, so we don't need JPhantom
       val useJPhantom = false
@@ -52,7 +52,9 @@ object Regression {
           new AndroidCGBuilder(analysisScope, transformer.harnessClassName, transformer.harnessMethodName)
           .makeAndroidCallGraph
       	timer.printTimeTaken("Building call graph")
-        assert(walaRes.cg.exists(n => !ClassUtil.isLibrary(n)), "Call graph has no application classes!")
+        val packagePrefix = test.toLowerCase
+        assert(walaRes.cg.exists(n => n.getMethod.getDeclaringClass.getName.toString.contains(packagePrefix)),
+               "No application classes reachable in call graph!")
       	
       	// walk over the call call graph / points-to analysis and check that they are free of absurdities
       	println("Checking for absurdities")

@@ -10,7 +10,7 @@ import com.ibm.wala.shrikeBT.MethodEditor.Patch
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen._
-import edu.colorado.droidel.constants.{DroidelConstants, AndroidLifecycle}
+import edu.colorado.droidel.constants.AndroidLifecycle
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
@@ -129,24 +129,26 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
    
     val manifestUsedActivitiesAndApplications = manifest.entries.foldLeft (Set.empty[String]) ((s, a) => 
       s + s"${binPath}${File.separator}${a.getPackageQualifiedName.replace('.', File.separatorChar)}.class")
-    
+
+
+    val droidelDirs = Iterable(STUB_DIR, PREWRITTEN_STUB_DIR, HARNESS_DIR).map(dir => s"$binPath${File.separator}$dir")
+
     // load application code using Application class loader and all library code using Primordial class loader
     // we decide which code is application code using the package path from the application manifest
     val allFiles = Util.getAllFiles(new File(binPath)).filter(f => !f.isDirectory())
     allFiles.foreach(f => assert(!f.getName().endsWith(".jar"), 
                                  s"Not expecting JAR ${f.getAbsolutePath()} in app bin directory"))
-    allFiles.foreach(f => if (f.getName().endsWith(".class"))
+    allFiles.foreach(f => if (f.getName().endsWith(".class")) {
+      val path = f.getAbsolutePath
       // make sure code in the manifest-declared app package is loaded as application
-      if (f.getAbsolutePath.contains(applicationCodePath) ||
+      if (path.contains(applicationCodePath) ||
           // if we have library code that is declared as an application Activity in the manifest, load as application
-          manifestUsedActivitiesAndApplications.contains(f.getAbsolutePath) ||
-          // make sure all stubs are loaded as application
-          f.getAbsolutePath.contains(DroidelConstants.STUB_DIR) ||
-          f.getAbsolutePath.contains(DroidelConstants.PREWRITTEN_STUB_DIR))
+          manifestUsedActivitiesAndApplications.contains(path) ||
+          droidelDirs.exists(dir => path.contains(dir)))
         analysisScope.addClassFileToScope(analysisScope.getApplicationLoader(), f)
       else if (!useHarness || f.getAbsolutePath() != harnessFile.get.getAbsolutePath())
         analysisScope.addClassFileToScope(analysisScope.getPrimordialLoader(), f)
-    )
+  })
 
     // if we're using JPhantom, all of the application code and all non-core Java library code (including the Android library)
     // has been deposited into the app bin directory, which has already been loaded. otherwise, we need to load library code
