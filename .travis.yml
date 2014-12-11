@@ -1,8 +1,8 @@
  language: scala
  before_install:
-   - "wget http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar"
+   - "wget -P stubs http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar"
    - "cd lib && ./install_deps.sh && cd .."
-   - "cd stubs && ./compile_stubs.sh ../android-4.4.2_r1.jar && cd .."
+   - "cd stubs && ./compile_stubs.sh android-4.4.2_r1.jar && cd .."
  script: sbt "test:run stubs/out/droidel_android-4.4.2_r1.jar"
  scala:
    - "2.10.2"
