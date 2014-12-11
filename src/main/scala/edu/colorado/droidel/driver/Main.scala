@@ -70,7 +70,7 @@ object Main {
       val jarFile = new File(androidJar)
       assert(appFile.exists(), s"Couldn't find input application $app")
       assert(jarFile.exists(), s"Couldn't find input JAR file $androidJar")
-      assert(androidJar.startsWith("droidel"),
+      assert(androidJar.contains("droidel"),
              s"Android JAR's used by Droidel must be preprocessed; see the Setting up an Android framework JAR section of the REAMDE")
       // convert the input from an apk into our desired format if necessary
       val droidelInput = if (appFile.isFile())            
