@@ -53,7 +53,7 @@ object Regression {
           .makeAndroidCallGraph
       	timer.printTimeTaken("Building call graph")
         val packagePrefix = test.toLowerCase
-        assert(walaRes.cg.exists(n => n.getMethod.getDeclaringClass.getName.toString.contains(packagePrefix)),
+        assert(walaRes.cg.exists(n => n.getMethod.getDeclaringClass.getName.toString.toLowerCase.contains(packagePrefix)),
                "No application classes reachable in call graph!")
       	
       	// walk over the call call graph / points-to analysis and check that they are free of absurdities

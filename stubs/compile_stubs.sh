@@ -5,6 +5,6 @@
 rm -rf out/*
 mkdir -p out
 cp $1 out
-cd out && jar xvf $1 && rm $1 && cd ..
+cd out && jar xf $1 && rm $1 && cd ..
 find . -name *.java | xargs javac -cp .:out -d out
-cd out && jar cvf droidel_$1 *
+cd out && jar cf droidel_$1 *
