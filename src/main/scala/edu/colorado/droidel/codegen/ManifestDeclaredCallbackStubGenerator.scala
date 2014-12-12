@@ -28,8 +28,8 @@ class ManifestDeclaredCallbackStubGenerator extends AndroidStubGenerator {
         else "else if"
       writer.beginControlFlow(s"$cond ($context instanceof $classString)")
       writer.emitStatement(s"$classString $classVarName = ($classString) $context")
-      assert(cbs.size == 1, "TODO: handle multiple manifest-registered callbacks on single class")
-      writer.emitStatement(s"$classVarName.${cbs.head.getName.toString}($view)")
+      val callPrefix = if (cbs.size > 1) "if (droidelhelpers.Nondet.nondetBool())" else ""
+      writer.emitStatement(s"$callPrefix $classVarName.${cbs.head.getName.toString}($view)")
       writer.endControlFlow()
     })
 

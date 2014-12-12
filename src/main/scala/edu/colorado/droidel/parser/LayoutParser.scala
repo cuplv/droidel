@@ -141,13 +141,15 @@ class LayoutParser extends AndroidParser {
     val resourcesMap = Util.getAllFiles(layoutDir, f => f.getName().endsWith(".xml") && !NO_PARSE.contains(f.getName()))
       .foldLeft (Map.empty[IClass,Set[LayoutElement]]) ((map, xmlFile) => {
       val declFile = xmlFile.getName()
+      val reportedWarnings = Util.makeSet[String]
       if (DEBUG) println(s"Parsing resource XML file $declFile")       
 
       // TODO: support these. see http://www.curious-creature.org/2009/02/25/android-layout-trick-2-include-to-reuse/
       def isUnsupportedConstruct(label : String) : Boolean = {
         val unsupported = List("requestFocus", "merge")
         val res = unsupported.contains(label)
-        if (res) println(s"Warning: layout file $declFile uses unsupported construct $label")
+        if (res && reportedWarnings.add(label))
+          println(s"Warning: layout file $declFile uses unsupported construct $label")
         res
       }
       

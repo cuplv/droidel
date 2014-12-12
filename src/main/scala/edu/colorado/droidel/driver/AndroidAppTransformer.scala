@@ -221,13 +221,14 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     def getEventHandlerMethod(eventHandlerName : String, parentClass : IClass) : Option[IMethod] =
       parentClass.getAllMethods().collect({ case m if m.getName().toString() == eventHandlerName => m }) match {
         case eventHandlers if eventHandlers.isEmpty =>
-          println(s"Warning: couldn't find manifest-declared event handler method $eventHandlerName as a method on ${ClassUtil.pretty(parentClass)}")
+          // TODO: no sense in having this warning now. bring it back once our association of Activity's to layout is less dumb
+          //println(s"Warning: couldn't find manifest-declared event handler method $eventHandlerName as a method on ${ClassUtil.pretty(parentClass)}")
           None          
         case eventHandlers =>
           if (eventHandlers.size > 1) println(s"Warning: expected to find exactly one method with name $eventHandlerName; found $eventHandlers")
           Some(eventHandlers.head)
       }
-    
+
     layoutMap.foldLeft (Map.empty[IClass,Set[IMethod]]) ((m, entry) => entry._2.foldLeft (m) ((m, v) => v match {
       case v : LayoutView =>
         v.onClick match {
@@ -412,7 +413,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       val typeRef = TypeReference.findOrCreate(ClassLoaderReference.Application, ClassUtil.walaifyClassName(a.getPackageQualifiedName))
       val clazz = cha.lookupClass(typeRef)
       if (clazz == null || !allApplicationActs.contains(clazz)) {
-        println(s"Activity ${a.getPackageQualifiedName} Typeref $typeRef IClass $clazz declared in manifest, but is not in framework-created types map")
+        println(s"Warning: Activity ${a.getPackageQualifiedName} Typeref $typeRef IClass $clazz declared in manifest, but is not in framework-created types map")
         if (!useJPhantom) println(s"Recommended: use JPhantom! It is likely that $typeRef is being discarded due to a missing superclass that JPhantom can generate")
         if (DEBUG) sys.error("Likely unsoundness, exiting")
       }
@@ -561,21 +562,30 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val viewType =
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
                                                  ClassUtil.walaifyClassName(AndroidConstants.VIEW_TYPE)))
+
     // sanity-check that set of registered cb's
-    manifestDeclaredCallbackMap.foreach(pair => {
-      val (clazz, cbSet) = pair
-      assert(cha.isAssignableFrom(activityType, clazz), s"Expecting $clazz to be Activity subclass")
-      cbSet.foreach(cb => {
-        assert(!cb.isStatic, s"Expected non-static method as manifest-registered cb, but got $cb")
-        assert(cb.getNumberOfParameters == 2, s"Expected exactly two parameters for manifest-registered cb $cb")
-        assert(cha.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0))),
-               s"Expected first argument of $cb to be a subtype of Context")
-        assert(cha.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1))),
-          s"Expected second argument of $cb to be a subtype of View")
+    val filteredMap =
+      manifestDeclaredCallbackMap.filter(pair => {
+        val (clazz, cbSet) = pair
+        if (!cha.isAssignableFrom(activityType, clazz)) {
+          // TODO: I think this comes up due to problems in computing the manifest-declared callback map
+          println(s"Warning: expecting $clazz to be Activity subclass.")
+          if (DEBUG) sys.error("exiting")
+          false
+        } else {
+          cbSet.foreach(cb => {
+            assert(!cb.isStatic, s"Expected non-static method as manifest-registered cb, but got $cb")
+            assert(cb.getNumberOfParameters == 2, s"Expected exactly two parameters for manifest-registered cb $cb")
+            assert(cha.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0))),
+              s"Expected first argument of $cb to be a subtype of Context")
+            assert(cha.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1))),
+              s"Expected second argument of $cb to be a subtype of View")
+          })
+          true
+        }
       })
-    })
     new ManifestDeclaredCallbackStubGenerator()
-    .generateStubs(manifestDeclaredCallbackMap, MANIFEST_DECLARED_CALLBACKS_STUB_CLASS,
+    .generateStubs(filteredMap, MANIFEST_DECLARED_CALLBACKS_STUB_CLASS,
                    MANIFEST_DECLARED_CALLBACKS_STUB_METHOD, androidJar.getAbsolutePath, appBinPath)
   }
   
