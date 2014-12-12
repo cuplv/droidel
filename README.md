@@ -15,7 +15,10 @@ Android is an event-driven system whose primary mechanism for control flow is th
 Droidel generates a harness that can be used as a single entrypoint for an Android app. The harness is a slightly modified version of the framework's `ActivityThread.main` method. The important changes are that the modified `main` calls Droidel's stubs for framework-created types to de-obfuscate reflection, and it adds all possible externally generated events to the main `Looper` of the app.
 
 (3) Layout inflation.  
-Most Android applications define their GUI structure in specialized layout XML files. At runtime, the Android framework *inflates* the GUI by parsing the XML and instantiating each XML-declared element via reflection. Applications can then look up and manipulate the GUI elements via methods such as [`findViewById`](http://developer.android.com/reference/android/app/Activity.html#findViewById(int)). The inflation process and the correspond look up methods are also opaque to most static analyzers. Droidel parses the layout XML to determine the element types that may be allocated during inflation and their id's. Droidel then generates Java bytecodes stubs that explicate the allocations performed during layout inflation and generates stubs for `findViewById` and `findFragmentById` that return the appropriate layout element given its id. Finally, Droidel injects the stubs directly into the application code by using WALA's Shrike bytecode instrumentation utility. For the common case where `findViewById` is called with a constant identifier (e.g, `findViewById(R.id.MainActivity)`), Droidel injects a *specialized* stub that returns only the layout element whose identifier is `R.id.MainActivity`, thereby increasing precision.
+Most Android applications define their GUI structure in specialized layout XML files. At runtime, the Android framework *inflates* the GUI by parsing the XML and instantiating each XML-declared element via reflection. Applications can then look up and manipulate the GUI elements via methods such as [`findViewById`](http://developer.android.com/reference/android/app/Activity.html#findViewById(int)). The inflation process and the correspond look up methods are also opaque to most static analyzers. Droidel parses the layout XML to determine the element types that may be allocated during inflation and their id's. Droidel then generates Java bytecodes stubs that explicate the allocations performed during layout inflation and injects them into the framework code.
+
+(4) XML-registered callback invocation.  
+When callbacks are registered in the layout XML via the `onClick` attribute, Droidel sees this and will generate stubs to make sure the method referred to by the `onClick` attribute gets invoked.
 
 
 Installation
@@ -81,9 +84,7 @@ Creating a reasonable framework model for Android is difficult, and Droidel is n
 
 (1) Currently, Droidel's harness is designed for flow-insensitive analysis. It does not faithfully model the invocation order of callbacks in the Android framework, and thus would not be suitable for direct use by a flow-sensitive analysis. We hope to add support for flow-sensitive harness generation in the future.
 
-(2) Droidel does not generate stubs for lookup of preferences parsed from XML via the Activity.getPreferences() method (and similar). Fixing this is also high on our priority list.
-
-(3) There are many other Android framework methods that use reflection under the hood that we also do not (yet) handle.
+(2) There are other Android framework methods that use reflection under the hood that we also do not (yet) handle. Fragment's are the most glaring example of this.
 
 
 Troubleshooting
