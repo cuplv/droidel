@@ -22,6 +22,9 @@ object DroidelConstants {
   val PREWRITTEN_STUB_DIR = "droidelhelpers"
   val STUB_DIR = "generatedstubs"
   val LAYOUT_STUB_CLASS = "GeneratedAndroidLayoutStubs"
+  val FIND_APP_FRAGMENT_BY_ID = "findAppFragmentById"
+  val FIND_SUPPORT_FRAGMENT_BY_ID = "findSupportFragmentById"
+
   val SYSTEM_SERVICE_STUB_CLASS = "GeneratedAndroidSystemServiceStubs"
 
   val MANIFEST_DECLARED_CALLBACKS_STUB_CLASS = "GeneratedAndroidManifestCallbackStubs"

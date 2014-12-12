@@ -10,7 +10,6 @@ import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
 import com.ibm.wala.shrikeBT.{IInvokeInstruction, InvokeInstruction, PopInstruction}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SymbolTable}
 import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
-import edu.colorado.droidel.constants.AndroidConstants
 import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.parser.{LayoutElement, LayoutFragment, LayoutView}
@@ -163,7 +162,6 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       
     val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
     val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
-    val usesSupportFragments = fragmentFields.forall(e => isSupportFragment(cha.lookupClass(e.typ)))
         
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
@@ -233,11 +231,23 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     makeIdSwitchForLayoutElements(viewFields)
     writer.endMethod() // end findViewById
 
+    def emitFindFragmentById(fragmentFields : Iterable[InhabitedLayoutElement],
+                             returnType : String, methodName : String) : Unit = {
+      writer.beginMethod(returnType, methodName, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
+      makeIdSwitchForLayoutElements(fragmentFields)
+      writer.endMethod()
+    }
+
+    // emit findFragmentById method for both app and support fragments
+    val (supportFragments, appFragments) = fragmentFields.partition(e => isSupportFragment(cha.lookupClass(e.typ)))
+    emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
+    emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+
     // emit findFragmentById() method than can return child Fragments
-    val returnType = if (usesSupportFragments) FRAGMENT_TYPE else APP_FRAGMENT_TYPE
+    /*val returnType = if (usesSupportFragments) FRAGMENT_TYPE else APP_FRAGMENT_TYPE
     writer.beginMethod(returnType, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
     makeIdSwitchForLayoutElements(fragmentFields)
-    writer.endMethod() // end findFragmentById
+    writer.endMethod() // end findFragmentById*/
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
@@ -279,24 +289,29 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     def isFirstParamSpecializedId(i : SSAInvokeInstruction, tbl : SymbolTable) : Boolean =
       i.getNumberOfUses() > 1 && tbl.isIntegerConstant(i.getUse(1)) && isSpecializedId(tbl.getIntValue(i.getUse(1)))          
           
-    val viewTypeRef = ClassUtil.makeTypeRef(AndroidConstants.VIEW_TYPE)
-    val activityTypeRef = ClassUtil.makeTypeRef(AndroidConstants.ACTIVITY_TYPE)
-    val fragmentManagerTypeRef = ClassUtil.makeTypeRef(AndroidConstants.FRAGMENT_MANAGER_TYPE)
+    val viewTypeRef = ClassUtil.makeTypeRef(VIEW_TYPE)
+    val activityTypeRef = ClassUtil.makeTypeRef(ACTIVITY_TYPE)
+    val fragmentManagerTypeRef = ClassUtil.makeTypeRef(FRAGMENT_MANAGER_TYPE)
     
-    val findViewByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(AndroidConstants.VIEW_TYPE)}"
-    val findFragmentByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(AndroidConstants.FRAGMENT_TYPE)}"
+    val findViewByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(VIEW_TYPE)}"
+    val findFragmentByIdDescriptor = s"(I)${ClassUtil.walaifyClassName(FRAGMENT_TYPE)}"
     
     // TODO: check the class hierarchy for overrides of findViewById? 
-    val findViewById = cha.resolveMethod(MethodReference.findOrCreate(viewTypeRef, AndroidConstants.FIND_VIEW_BY_ID, findViewByIdDescriptor))
-    val activityFindViewById = cha.resolveMethod(MethodReference.findOrCreate(activityTypeRef, AndroidConstants.FIND_VIEW_BY_ID, findViewByIdDescriptor))    
-    val findFragmentById = cha.resolveMethod(MethodReference.findOrCreate(fragmentManagerTypeRef, AndroidConstants.FIND_FRAGMENT_BY_ID, findFragmentByIdDescriptor))    
+    val findViewById =
+      cha.resolveMethod(MethodReference.findOrCreate(viewTypeRef, FIND_VIEW_BY_ID, findViewByIdDescriptor))
+    val activityFindViewById =
+      cha.resolveMethod(MethodReference.findOrCreate(activityTypeRef, FIND_VIEW_BY_ID, findViewByIdDescriptor))
+    val findFragmentById =
+      cha.resolveMethod(MethodReference.findOrCreate(fragmentManagerTypeRef, FIND_FRAGMENT_BY_ID,
+                        findFragmentByIdDescriptor))
         
     val findViewByIdMeths = List(findViewById, activityFindViewById, findFragmentById)    
     
     def tryCreatePatch(i : SSAInvokeInstruction, ir : IR) : Option[Patch] = {
       val tbl = ir.getSymbolTable
-      if (!ClassUtil.isLibrary(ir.getMethod()) && // we only want to inject these stubs in application code
-          isFirstParamSpecializedId(i, tbl)) Some(createShrikePatch(specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))))
+      // we only want to inject these stubs in application code
+      if (!ClassUtil.isLibrary(ir.getMethod()) && isFirstParamSpecializedId(i, tbl))
+        Some(createShrikePatch(specializedLayoutGettersMap(tbl.getIntValue(i.getUse(1)))))
       else None // TODO: add call to Stubs.findViewById(param) for non-specialized cases heres
     }
       

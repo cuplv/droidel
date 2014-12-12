@@ -30,13 +30,21 @@ class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
       writer.endMethod()
     })
 
-    // emit override method for layout stubs
-    val findViewById = "findViewById"
-    val id = "id"
-    writer.emitAnnotation(OVERRIDE)
-    writer.beginMethod(VIEW_TYPE, findViewById, EnumSet.of(PUBLIC), "int", id)
-    writer.emitStatement(s"return $STUB_DIR.$LAYOUT_STUB_CLASS.$findViewById($id)")
-    writer.endMethod()
+    // emit override methods for layout stubs
+    def emitFindLayoutComponentById(typ : String, methodName : String) : Unit = {
+      val id = "id"
+      writer.emitAnnotation(OVERRIDE)
+      writer.beginMethod(typ, methodName, EnumSet.of(PUBLIC), "int", id)
+      writer.emitStatement(s"return $STUB_DIR.$LAYOUT_STUB_CLASS.$methodName($id)")
+      writer.endMethod()
+    }
+
+    // View's
+    emitFindLayoutComponentById(VIEW_TYPE, "findViewById")
+    // app Fragment's
+    emitFindLayoutComponentById(APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+    // support Fragment's
+    emitFindLayoutComponentById(FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
 
     // emit override method for manifest-declared callbacks
     writer.emitAnnotation(OVERRIDE)

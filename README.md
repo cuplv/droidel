@@ -84,7 +84,7 @@ Creating a reasonable framework model for Android is difficult, and Droidel is n
 
 (1) Currently, Droidel's harness is designed for flow-insensitive analysis. It does not faithfully model the invocation order of callbacks in the Android framework, and thus would not be suitable for direct use by a flow-sensitive analysis. We hope to add support for flow-sensitive harness generation in the future.
 
-(2) There are other Android framework methods that use reflection under the hood that we also do not (yet) handle. Fragment's are the most glaring example of this.
+(2) There are other Android framework methods that use reflection under the hood that we also do not (yet) handle.
 
 
 Troubleshooting

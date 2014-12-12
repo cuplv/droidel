@@ -22,5 +22,9 @@ public interface DroidelStubs {
 
     public View findViewById(int id);
 
-    public void callManifestRegisteredCallback(Context ctx, View v);    
+    public void callManifestRegisteredCallback(Context ctx, View v);
+
+    public android.app.Fragment findAppFragmentById(int id);
+
+    public android.support.v4.app.Fragment findSupportFragmentById(int id);
 }
