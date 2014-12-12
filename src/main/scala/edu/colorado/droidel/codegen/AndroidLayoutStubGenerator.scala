@@ -242,12 +242,6 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     val (supportFragments, appFragments) = fragmentFields.partition(e => isSupportFragment(cha.lookupClass(e.typ)))
     emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
     emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
-
-    // emit findFragmentById() method than can return child Fragments
-    /*val returnType = if (usesSupportFragments) FRAGMENT_TYPE else APP_FRAGMENT_TYPE
-    writer.beginMethod(returnType, FIND_FRAGMENT_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
-    makeIdSwitchForLayoutElements(fragmentFields)
-    writer.endMethod() // end findFragmentById*/
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
@@ -255,17 +249,16 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
         case Some(id) => 
           val generatedName = s"${getterName}$id"
           val methodRetval = ClassUtil.deWalaifyClassName(v.typ)
-          //if (getterName == "getFragment") writer.beginMethod(FRAGMENT_TYPE, generatedName, EnumSet.of(PUBLIC, STATIC))
-          //else writer.beginMethod(methodRetval, generatedName, EnumSet.of(PUBLIC, STATIC))
           writer.beginMethod(methodRetval, generatedName, EnumSet.of(PUBLIC, STATIC))
           writer.emitStatement(s"return ${v.name}")
           writer.endMethod()
 
           val sig = s"()${v.typ.getName().toString()}"
-          specializedGetterMap + 
-            //(id -> MethodReference.findOrCreate(ClassLoaderReference.Application, 
-          (id -> MethodReference.findOrCreate(ClassLoaderReference.Primordial,
-                                                ClassUtil.walaifyClassName(s"$STUB_DIR.$stubClassName"), generatedName, sig))
+          specializedGetterMap +
+            (id -> MethodReference.findOrCreate(ClassLoaderReference.Primordial,
+                                                ClassUtil.walaifyClassName(s"$STUB_DIR.$stubClassName"),
+                                                generatedName,
+                                                sig))
         case None => specializedGetterMap
       })   
     

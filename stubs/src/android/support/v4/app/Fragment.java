@@ -402,8 +402,11 @@ public class Fragment implements ComponentCallbacks, OnCreateContextMenuListener
                 clazz = context.getClassLoader().loadClass(fname);
                 sClassMap.put(fname, clazz);
             }
-            //Fragment f = (Fragment)clazz.newInstance();
-	    Fragment f = droidelStubs.findSupportFragmentById(droidelhelpers.Nondet.nondetInt());
+
+            Fragment f; 
+	    if (Nondet.nondetBool()) f = (Fragment)clazz.newInstance();
+	    else f = droidelStubs.findSupportFragmentById(Nondet.nondetInt());
+
             if (args != null) {
                 args.setClassLoader(f.getClass().getClassLoader());
                 f.mArguments = args;
@@ -413,7 +416,7 @@ public class Fragment implements ComponentCallbacks, OnCreateContextMenuListener
             throw new InstantiationException("Unable to instantiate fragment " + fname
                     + ": make sure class name exists, is public, and has an"
                     + " empty constructor that is public", e);
-        } /*catch (java.lang.InstantiationException e) {
+        } catch (java.lang.InstantiationException e) {
             throw new InstantiationException("Unable to instantiate fragment " + fname
                     + ": make sure class name exists, is public, and has an"
                     + " empty constructor that is public", e);
@@ -421,7 +424,7 @@ public class Fragment implements ComponentCallbacks, OnCreateContextMenuListener
             throw new InstantiationException("Unable to instantiate fragment " + fname
                     + ": make sure class name exists, is public, and has an"
                     + " empty constructor that is public", e);
-		    }*/
+	}
     }
 
     /**

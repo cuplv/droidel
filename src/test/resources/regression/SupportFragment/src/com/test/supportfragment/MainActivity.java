@@ -26,7 +26,8 @@ public class MainActivity extends FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
 	fragment = (MainFragment) getSupportFragmentManager().findFragmentById(R.id.fragmentMain);
-	
+	fragment.toString();
+
 	mSurfaceView = (SurfaceView) findViewById(R.id.mySurfaceView);
 	mSurfaceHolder = mSurfaceView.getHolder();
 	mController = new Controller(this);
