@@ -33,14 +33,14 @@ class CHAComplementer(appJar : File, droidelHome : String, libJars : List[File],
     // run JPhantom on the merged JAR, placing the output in the appropriate directory
     println("Running JPhantom")
     val cmd = s"$JPHANTOM ${jPhantomIn} -o $jPhantomOutJarPath"
-   
+
+   val phantomizedJar = new File(jPhantomOutJarPath)
    val res = try {
       val output = cmd.!! // run JPhantom
       println(output)
-      val phantomizedJar = new File(jPhantomOutJarPath)
       if (phantomizedJar.exists()) {
         // unpack JPhantom's output JAR in the specified output directory
-        Process(Seq("jar", "xvf", jPhantomOutJar), new File(jPhantomOutDir.getAbsolutePath())).!!
+        Process(Seq("jar", "xf", jPhantomOutJar), new File(jPhantomOutDir.getAbsolutePath())).!!
         // delete the output JAR; we don't need it now that it was unpacked
         phantomizedJar.delete()
         true
@@ -51,6 +51,7 @@ class CHAComplementer(appJar : File, droidelHome : String, libJars : List[File],
     } catch {
       case e : Throwable => 
         println(s"JPhantom failed: $e. Continuing")
+        if (phantomizedJar.exists()) phantomizedJar.delete()
         // JPhantom didn't work. fail gracefully by extracting the input JAR in the JPhantom directory and moving on
         JavaUtil.extractJar(new File(jPhantomIn), jPhantomOutDir.getAbsolutePath())
         true

@@ -71,7 +71,7 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
   val WEBKIT_PREFIX = "android.webkit"
   val layoutPrefixes = List(WIDGET_PREFIX, VIEW_PREFIX, WEBKIT_PREFIX)
   
-  private def getTypeForAndroidClassName(name : String) : TypeReference = {        
+  private def getTypeForAndroidClassName(name : String) : Option[TypeReference] = {
     def isPackageExpandedName(name : String) : Boolean = name.contains('.')
     val packageExpandedNames = {
       if (isPackageExpandedName(name)) List(name) 
@@ -89,13 +89,16 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
         
     // find a class in the class hierarchy corresponding to one of our guesses for the package expanded name
     cha.find(c => packageExpandedNames.contains(c.getName().toString())) match {
-      case Some(c) => c.getReference()
+      case Some(c) => Some(c.getReference)
       case None =>
         // easy lookup failed. just look for a name match
         cha.find(c => c.getName().toString().contains(name)) match {
-          case Some(c) => c.getReference()
+          case Some(c) => Some(c.getReference)
           case None =>
-            sys.error(s"Couldn't find class name corresponding to any of $packageExpandedNames in class hierarchy")
+            val msg = s"Warning: couldn't find class name corresponding to any of $packageExpandedNames in class hierarchy"
+            if (DEBUG) sys.error(msg)
+            else println(msg)
+            None
         }                
     }     
   }
@@ -105,10 +108,16 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
                                 stubMap : StubMap, generatedStubs : List[File],
                                 specializedGetterMap : Map[LayoutId,MethodReference], 
                                 stubClassName : String, appBinPath : String) : (StubMap, List[File]) = {
-    val viewClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(VIEW_TYPE)))
+    val viewClass =
+      cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
+                      ClassUtil.walaifyClassName(VIEW_TYPE)))
     assert(viewClass != null, "Couldn't find View class in class hierarchy. Something is very wrong")
-    val fragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(FRAGMENT_TYPE)))
-    val appFragmentClass = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE)))
+    val fragmentClass =
+      cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
+                      ClassUtil.walaifyClassName(FRAGMENT_TYPE)))
+    val appFragmentClass =
+      cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
+                      ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE)))
 
     def isFragment(c : IClass, fragmentType : IClass) = fragmentClass != null && cha.isAssignableFrom(fragmentType, c)
     def isSupportFragment(c : IClass) = isFragment(c, fragmentClass)
@@ -120,33 +129,37 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       case _ => false
     } 
     
-    def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) =
-      elems.foldLeft (List.empty[InhabitedLayoutElement], allocs) ((pair, v) => {
+    def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement],
+                                         allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) = {
+      def checkForInhabitationProblems(clazz: IClass, v : LayoutElement): Option[String] =
+        if (clazz == null)
+          Some("we could not resolve it in the class hierarchy")
+        else if (ClassUtil.isInnerOrEnum(clazz))
+          Some("it is an inner class or Enum that cannot be allocated outside of its class or package")
+        else if (!isSubtypeOfViewOrFragment(v, clazz))
+          Some("it is not a subtype of View/Fragment according to the class hierarchy (missing library code suspected)")
+        else if (clazz.isPrivate || !clazz.isPublic)
+          Some("it is a private or non-public class")
+        else None
 
-        def checkForInhabitationProblems(clazz : IClass) : Option[String] =
-          if (clazz == null)
-            Some("we could not resolve it in the class hierarchy")
-          else if (ClassUtil.isInnerOrEnum(clazz))
-            Some("it is an inner class or Enum that cannot be allocated outside of its class or package")
-          else if (!isSubtypeOfViewOrFragment(v, clazz))
-            Some("it is not a subtype of View/Fragment according to the class hierarchy (missing library code suspected)")
-          else if (clazz.isPrivate)
-            Some("it is a private class")
-          else None
-
-        val elemType = getTypeForAndroidClassName(v.typ)
-        val clazz = cha.lookupClass(elemType)
-        checkForInhabitationProblems(clazz) match {
-          case Some(problem) =>
-            println(s"Warning: not including ${v.typ} in stubs because $problem")
-            pair
-          case None =>
-            val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
-            val inhabitedElem = new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType)
-            inhabitedLayoutElems += inhabitedElem
-            (inhabitedElem :: pair._1, allocs)
-        }        
-      })
+      elems.foldLeft(List.empty[InhabitedLayoutElement], allocs)((pair, v) =>
+        getTypeForAndroidClassName(v.typ) match {
+          case Some(elemType) =>
+            val clazz = cha.lookupClass(elemType)
+            checkForInhabitationProblems(clazz, v) match {
+              case Some(problem) =>
+                println(s"Warning: not including ${v.typ} in stubs because $problem")
+                pair
+              case None =>
+                val (inhabitant, allocs) = inhabitor.inhabit(elemType, cha, pair._2, doAllocAndReturnVar = false)
+                val inhabitedElem = new InhabitedLayoutElement(v.name, v.id, inhabitant, elemType)
+                inhabitedLayoutElems += inhabitedElem
+                (inhabitedElem :: pair._1, allocs)
+            }
+          case None => pair
+        }
+      )
+    }
       
     val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
     val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)

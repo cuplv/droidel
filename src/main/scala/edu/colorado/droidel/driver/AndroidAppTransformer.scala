@@ -572,17 +572,22 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
           println(s"Warning: expecting $clazz to be Activity subclass.")
           if (DEBUG) sys.error("exiting")
           false
-        } else {
-          cbSet.foreach(cb => {
-            assert(!cb.isStatic, s"Expected non-static method as manifest-registered cb, but got $cb")
-            assert(cb.getNumberOfParameters == 2, s"Expected exactly two parameters for manifest-registered cb $cb")
-            assert(cha.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0))),
-              s"Expected first argument of $cb to be a subtype of Context")
-            assert(cha.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1))),
-              s"Expected second argument of $cb to be a subtype of View")
-          })
-          true
-        }
+        } else
+          cbSet.forall(cb =>
+            if (cb.isStatic) {
+              println(s"Warning: expected non-static method as manifest-registered cb, but got $cb")
+              false
+            } else if (cb.getNumberOfParameters != 2) {
+              println(s"Warning: expected exactly two parameters for manifest-registered cb $cb")
+              false
+            } else if (!cha.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0)))) {
+              println(s"Warning: expected first argument of $cb to be a subtype of Context")
+              false
+            } else if (!cha.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1)))) {
+              println(s"Warning: expected second argument of $cb to be a subtype of View")
+              false
+            } else true
+          )
       })
     new ManifestDeclaredCallbackStubGenerator()
     .generateStubs(filteredMap, MANIFEST_DECLARED_CALLBACKS_STUB_CLASS,
