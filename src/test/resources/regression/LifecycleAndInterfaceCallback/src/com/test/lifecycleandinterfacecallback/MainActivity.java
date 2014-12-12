@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.preference.PreferenceActivity;
 import android.telephony.gsm.SmsManager;
 import android.telephony.TelephonyManager;
 import android.widget.Toast;
@@ -14,7 +15,7 @@ import android.view.SurfaceHolder;
 import android.util.Log;
 
 
-public class MainActivity extends Activity implements OnSharedPreferenceChangeListener {
+public class MainActivity extends PreferenceActivity implements OnSharedPreferenceChangeListener {
     private SurfaceView mSurfaceView;
     private SurfaceHolder mSurfaceHolder;
     private Controller mController;    
@@ -25,6 +26,9 @@ public class MainActivity extends Activity implements OnSharedPreferenceChangeLi
         setContentView(R.layout.main);
 	mSurfaceView = (SurfaceView) findViewById(R.id.mySurfaceView);
 	mController = new Controller(this);
+	addPreferencesFromResource(-1);
+	getPreferenceManager().toString();
+    	getPreferenceScreen().getSharedPreferences().registerOnSharedPreferenceChangeListener(this);
     }
 
     @Override
@@ -51,7 +55,7 @@ public class MainActivity extends Activity implements OnSharedPreferenceChangeLi
     @Override
     public void onDestroy() {
 	// this will be null dispatch if we don't know to call onSharedPreferenceChange
-	// because mSurfaceViewHolder will never be inialized
+	// because mSurfaceViewHolder will never be initialized
 	if (mSurfaceHolder != null) {
 	    boolean b = mSurfaceHolder.isCreating();
 	    Log.d("onDestroy", "Surface holder creating? " + b);

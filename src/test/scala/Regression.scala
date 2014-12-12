@@ -16,9 +16,7 @@ object Regression {
       val testPrefix = s"src${File.separator}test${File.separator}resources${File.separator}regression${File.separator}"
 
       val tests =
-        Iterable("HoistTest1", "HoistTest2", "ProtectedCallback",
-                 //"LifecycleAndInterfaceCallback",
-                 "ViewLookup",
+        Iterable("HoistTest1", "HoistTest2", "ProtectedCallback", "LifecycleAndInterfaceCallback", "ViewLookup",
                  "SupportFragment", "SystemService")
 
       // our tests should have all the library dependencies included, so we don't need JPhantom

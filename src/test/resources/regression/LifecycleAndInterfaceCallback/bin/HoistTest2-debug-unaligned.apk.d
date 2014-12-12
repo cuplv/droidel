@@ -1,3 +1,3 @@
-/home/sam/Desktop/eclipse/scwala/test/androidModel/LifecycleAndInterfaceCallback/bin/HoistTest2-debug-unaligned.apk : \
-/home/sam/Desktop/eclipse/scwala/test/androidModel/LifecycleAndInterfaceCallback/bin/HoistTest2.ap_ \
-/home/sam/Desktop/eclipse/scwala/test/androidModel/LifecycleAndInterfaceCallback/bin/classes.dex \
+/Users/sam/Desktop/code/droidel/src/test/resources/regression/LifecycleAndInterfaceCallback/bin/HoistTest2-debug-unaligned.apk : \
+/Users/sam/Desktop/code/droidel/src/test/resources/regression/LifecycleAndInterfaceCallback/bin/HoistTest2.ap_ \
+/Users/sam/Desktop/code/droidel/src/test/resources/regression/LifecycleAndInterfaceCallback/bin/classes.dex \
