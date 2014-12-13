@@ -9,7 +9,7 @@ Droidel is a model of the Android framework that simplifies static analysis of A
 What Android features does Droidel handle?
 ------------------------------------------
 (1) Framework-created types.  
-Android is an event-driven system whose primary mechanism for control flow is the invocation of application-overriden callback methods by the framework. The framework code that invokes callbacks is complicated and uses reflection heavily. Droidel understands what application types the framework will instantiate reflectively. It uses this information to inject stubs into the framework that explicate what types are allocated via reflection. 
+Android is an event-driven system whose primary mechanism for control flow is the invocation of application-overridden callback methods by the framework. The framework code that invokes callbacks is complicated and uses reflection heavily. Droidel understands what application types the framework will instantiate reflectively. It uses this information to inject stubs into the framework that explicate what types are allocated via reflection. 
 
 (2) Harness generation.  
 Droidel generates a harness that can be used as a single entrypoint for an Android app. The harness is a slightly modified version of the framework's `ActivityThread.main` method. The important changes are that the modified `main` calls Droidel's stubs for framework-created types to de-obfuscate reflection, and it adds all possible externally generated events to the main `Looper` of the app.
@@ -37,7 +37,7 @@ Installing Droidel requires Scala 2.10.2 or later, sbt, maven, and ant. Droidel 
 
 Setting up an Android framework JAR
 -----------------------------------
-In order to run Droidel, you first need to generate a JAR file for the Android framework that has been injected with Droidel's stub interfaces. Do this byrunning `compile_stubs.sh <android_jar>` in the `stubs` directory. The resulting injected JAR will be places in `stubs/out/droidel_<android_jar>`. This JAR should be passed to the `droidel.sh` script the `-android_jar` argument to the 
+In order to run Droidel, you first need to generate a JAR file for the Android framework that has been injected with Droidel's stub interfaces. Do this by moving the Android JAR you want to use into the `stubs` directory and running `compile_stubs.sh <android_jar>` in the `stubs` directory. The resulting injected JAR will be places in `stubs/out/droidel_<android_jar>`.
 
 Droidel has been tested using the [Android 4.2.2](http://grepcode.com/snapshot/repository.grepcode.com/java/ext/com.google.android/android/4.2.2_r1) JAR. Other versions of Android may require slight adjustments to the stubs in order to compile.
 
