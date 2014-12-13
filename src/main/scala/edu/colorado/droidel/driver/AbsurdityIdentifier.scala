@@ -3,19 +3,22 @@ package edu.colorado.droidel.driver
 import java.io.{File, PrintWriter}
 
 import com.ibm.wala.analysis.pointers.HeapGraph
-import com.ibm.wala.classLoader.{IClass, IBytecodeMethod, IMethod}
+import com.ibm.wala.classLoader.{IBytecodeMethod, IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.propagation._
 import com.ibm.wala.ipa.callgraph.{CGNode, CallGraph}
 import com.ibm.wala.ipa.cha.IClassHierarchy
-import com.ibm.wala.ssa.{IR, SSAConditionalBranchInstruction, SSAGetInstruction, SSAInstruction, SSAInvokeInstruction}
+import com.ibm.wala.ssa._
 import com.ibm.wala.types.MethodReference
 import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.walautil.{ClassUtil, IRUtil, Util, WalaAnalysisResults}
+import edu.colorado.walautil.{ClassUtil, IRUtil, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
 
 /** class for identifying "absurdities", or likely soundness issues in a callgraph/points-to analysis */
 class AbsurdityIdentifier(harnessClassName : String) {
+
+  type CallInstrSourceInfo = (MethodReference,BytecodeIndex,SourceLine,SrcVarName)
+  type InstrSourceInfo = (BytecodeIndex,SourceLine,SrcVarName,SrcVarName)
 
   def isGeneratedMethod(m : MethodReference) : Boolean = {
     val className = m.getDeclaringClass().getName().toString()
@@ -59,25 +62,27 @@ class AbsurdityIdentifier(harnessClassName : String) {
         absurdities.foldLeft (l) ((l, t) => xmlifyAbsurdity(t, absurdityName, caller) :: l)
       })      
           
-    val nullDispatches = getAbsurditiesInternal("nullDispatch", getNullDispatchMethods, xmlifyMethodAbsurdity)
-    val nullRets = getAbsurditiesInternal("nullRet", getNullReturnValueMethods, xmlifyMethodAbsurdity)
-    val bogusBranches = getAbsurditiesInternal("bogusBranch", getBogusBranches, xmlifyBranchAbsurdity)
+    val nullDispatches = getAbsurditiesInternal("nullDispatch", getNullDispatchMethods, xmlifyCallAbsurdity)
+    //val nullRets = getAbsurditiesInternal("nullRet", getNullReturnValueMethods, xmlifyCallAbsurdity)
+    val nullReads = getAbsurditiesInternal("nullRead", getNullReadInstructions, xmlifyInstrAbsurdity)
+    val nullWrites = getAbsurditiesInternal("nullWrite", getNullWriteInstructions, xmlifyInstrAbsurdity)
+    val bogusBranches = getAbsurditiesInternal("bogusBranch", getBogusBranches, xmlifyInstrAbsurdity)
+    val badCasts = getAbsurditiesInternal("badCast", getBadCasts, xmlifyInstrAbsurdity)
+    val absurdities = Iterable(nullDispatches, nullReads, nullWrites, badCasts, bogusBranches).flatten
 
-    val haveAbsurdities = !nullDispatches.isEmpty || !nullRets.isEmpty || !bogusBranches.isEmpty
+    val haveAbsurdities = !absurdities.isEmpty
     if (!haveAbsurdities) println("Found no absurdities.")
     else {
-      println("Found absurdities: ")
+      println(s"Found ${absurdities.size} asurdities: ")
       println("<absurdities>")
-      nullDispatches.foreach(println)
-      nullRets.foreach(println)
-      bogusBranches.foreach(println)
+      absurdities.foreach(println)
       println("</absurdities>")
     }  
         
     def outputAbsurditiesXML() : Unit = {
       val prefix = 
         if (harnessClassName == "LdummyMainClass") "flowdroid" 
-        else if (harnessClassName.contains(DroidelConstants.HARNESS_CLASS)) "droidel" 
+        else if (harnessClassName.contains(DroidelConstants.HARNESS_CLASS)) "droidel"
         else "default"
   
       val absurditiesName = s"${prefix}_absurdities.xml"
@@ -89,38 +94,28 @@ class AbsurdityIdentifier(harnessClassName : String) {
       val SPACE = "  "
       Some(new PrintWriter(absurditiesPath)).foreach { f => {
         f.write("<absurdities>\n")
-        nullDispatches.foreach(a => f.write(SPACE + a + "\n"))
-        nullRets.foreach(a => f.write(SPACE + a + "\n"))
-        bogusBranches.foreach(a => f.write(SPACE + a + "\n"))
+        absurdities.foreach(a => f.write(SPACE + a + "\n"))
         f.write("</absurdities>\n")
         f.close
       }}
-      
-      /*val reachableMethodsName = s"${prefix}_reachableMethods.txt"
-      val reachableMethodsPath = s"$appPath/$reachableMethodsName"
-      // write out list of reachable methods
-      Some(new PrintWriter(reachableMethodsPath)).foreach { f => {
-        methodNodeMap.keys.foreach(m => f.write(formatMethod(m) + "\n"))
-        f.close
-      }}*/
     }
     
     if (doXmlOutput) outputAbsurditiesXML    
-    Util.combine(nullDispatches, Util.combine(nullRets, bogusBranches))
+    absurdities
   }  
 
   type BytecodeIndex = Int
   type SourceLine = Int
   type SrcVarName = String
     
-  def xmlifyMethodAbsurdity(quad : (MethodReference,BytecodeIndex,SourceLine,SrcVarName), absurdityName : String, caller : MethodReference) : String = 
-    "<" + absurdityName + " callee=\"" + formatMethod(quad._1) + "\" bcIndex=\"" + quad._2 + "\" srcLine=\"" + quad._3 + 
-    "\" var=\"" + quad._4 + "\" caller=\"" + formatMethod(caller) + "\" />"
+  def xmlifyCallAbsurdity(info : CallInstrSourceInfo, absurdityName : String, caller : MethodReference) : String =
+    "<" + absurdityName + " callee=\"" + formatMethod(info._1) + "\" bcIndex=\"" + info._2 + "\" srcLine=\"" + info._3 +
+    "\" var=\"" + info._4 + "\" caller=\"" + formatMethod(caller) + "\" />"
     
-  def xmlifyBranchAbsurdity(indices : (Int,Int,SrcVarName,SrcVarName), absurdityName : String, caller : MethodReference) : String = {
-    "<" + absurdityName + " bcIndex=\"" + indices._1 + "\" srcLine=\"" + indices._2 + "\" lhsVar=\"" + indices._3 + 
-    "\" rhsVar=\"" + indices._4 + "\" caller=\"" + formatMethod(caller) + "\" />"
-  }    
+  def xmlifyInstrAbsurdity(info : InstrSourceInfo, absurdityName : String, caller : MethodReference) : String = {
+    "<" + absurdityName + " bcIndex=\"" + info._1 + "\" srcLine=\"" + info._2 + "\" lhsVar=\"" + info._3 +
+    "\" rhsVar=\"" + info._4 + "\" caller=\"" + formatMethod(caller) + "\" />"
+  }
     
   def getBytecodeIndexAndSourceLine(i : SSAInstruction, n : CGNode, index : Int) : (BytecodeIndex,SourceLine) = {
     val bcIndex =
@@ -177,44 +172,84 @@ class AbsurdityIdentifier(harnessClassName : String) {
     )
   }
 
-  def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(BytecodeIndex,SourceLine,SrcVarName,SrcVarName)] = n.getIR match {
+  def getBadCasts(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[InstrSourceInfo] = n.getIR match {
     case null => Nil
-    case ir => ir.getInstructions().toIterable.zipWithIndex.collect({
-      case (i : SSAConditionalBranchInstruction, index : Int) if i.isObjectComparison() && { 
-        val tbl = ir.getSymbolTable()
-        val (use0, use1) = (i.getUse(0), i.getUse(1))
-        if (!tbl.isNullConstant(use0) && !tbl.isNullConstant(use1)) {
-          val (pt0, pt1) = (getPt(makeLPK(use0, n, hm), hg), getPt(makeLPK(use1, n, hm), hg))
-          pt0.intersect(pt1).isEmpty
-          //pt0.isEmpty || pt1.isEmpty
-        } else false 
-      } =>
-        val (lhs, rhs) = (getLocalName(index, i.getUse(0), ir), getLocalName(index, i.getUse(1), ir))
-        val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
-        (bcIndex, srcLine, lhs, rhs)
-    })
+    case ir =>
+      val tbl = ir.getSymbolTable()
+      ir.getInstructions().toIterable.zipWithIndex.collect({
+        case (i :SSACheckCastInstruction, index : Int) if getPt(makeLPK(i.getDef, n, hm), hg).isEmpty &&
+                                                          !tbl.isNullConstant(i.getVal) =>
+          val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
+          val castTargetName = getLocalName(index, i.getVal, ir)
+          val castResultName = getLocalName(index, i.getDef, ir)
+          (bcIndex, srcLine, castResultName, castTargetName)
+      })
+  }
+
+  def getBogusBranches(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[InstrSourceInfo] = n.getIR match {
+    case null => Nil
+    case ir =>
+      val tbl = ir.getSymbolTable()
+      ir.getInstructions().toIterable.zipWithIndex.collect({
+        case (i : SSAConditionalBranchInstruction, index : Int) if i.isObjectComparison() && {
+          val (use0, use1) = (i.getUse(0), i.getUse(1))
+          if (!tbl.isNullConstant(use0) && !tbl.isNullConstant(use1)) {
+            val (pt0, pt1) = (getPt(makeLPK(use0, n, hm), hg), getPt(makeLPK(use1, n, hm), hg))
+            pt0.intersect(pt1).isEmpty
+          } else false
+        } =>
+          val (lhs, rhs) = (getLocalName(index, i.getUse(0), ir), getLocalName(index, i.getUse(1), ir))
+          val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
+          (bcIndex, srcLine, lhs, rhs)
+      })
+  }
+
+  def getNullReadInstructions(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[InstrSourceInfo] = n.getIR match {
+    case null => Nil
+    case ir =>
+      val tbl = ir.getSymbolTable()
+      ir.getInstructions().toIterable.zipWithIndex.collect({
+        case (i : SSAGetInstruction, index : Int) if !i.isStatic && getPt(makeLPK(i.getRef, n, hm), hg).isEmpty =>
+          val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
+          val readVarName = getLocalName(index, i.getRef, ir)
+          val readResultName = getLocalName(index, i.getDef, ir)
+          (bcIndex, srcLine, readVarName, readResultName)
+      })
+  }
+
+  def getNullWriteInstructions(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[InstrSourceInfo] = n.getIR match {
+    case null => Nil
+    case ir =>
+      val tbl = ir.getSymbolTable()
+      ir.getInstructions().toIterable.zipWithIndex.collect({
+        case (i : SSAPutInstruction, index : Int) if !i.isStatic && getPt(makeLPK(i.getRef, n, hm), hg).isEmpty =>
+          val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
+          val writtenVarName = getLocalName(index, i.getRef, ir)
+          (bcIndex, srcLine, writtenVarName, DUMMY_NAME)
+      })
   }
       
-  def getNullDispatchMethods(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
+  def getNullDispatchMethods(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[CallInstrSourceInfo] = n.getIR match {
     case null => Nil
       // collect all non-static invokes in the IR for n whose receiver has an empty points-to set
     case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 
-      case (i : SSAInvokeInstruction, index : Int) if !i.isStatic() && getPt(makeLPK(i.getReceiver(), n, hm), hg).size == 0 =>
+      case (i : SSAInvokeInstruction, index : Int) if !i.isStatic() && getPt(makeLPK(i.getReceiver(), n, hm), hg).isEmpty =>
         val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
         val receiverName = getLocalName(index, i.getReceiver(), ir)
         (i.getDeclaredTarget(), bcIndex, srcLine, receiverName)
     })
   }
   
-  def getNullReturnValueMethods(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[(MethodReference,BytecodeIndex,SourceLine,SrcVarName)] = n.getIR match {
+  def getNullReturnValueMethods(n : CGNode, hm : HeapModel, hg : HeapGraph[InstanceKey]) : Iterable[CallInstrSourceInfo] = n.getIR match {
     case null => Nil
       // collect all invokes with non-primitive return values such that the pts-to set of the return value is empty
-    case ir => ir.getInstructions().toIterable.zipWithIndex.collect({ 
+    case ir => ir.getInstructions().toIterable.zipWithIndex.collect({
       case (i : SSAInvokeInstruction, index : Int) if i.hasDef() && i.getDeclaredResultType().isReferenceType() &&
-        !isGeneratedMethod(i.getDeclaredTarget) && getPt(makeLPK(i.getDef(), n, hm), hg).size == 0 =>
+        !isGeneratedMethod(i.getDeclaredTarget) && getPt(makeLPK(i.getDef(), n, hm), hg).isEmpty =>
           val (bcIndex, srcLine) = getBytecodeIndexAndSourceLine(i, n, index)
           val retvalName = getLocalName(index, i.getDef(), ir)
           (i.getDeclaredTarget(), bcIndex, srcLine, retvalName)
     })
   }
+
 }
