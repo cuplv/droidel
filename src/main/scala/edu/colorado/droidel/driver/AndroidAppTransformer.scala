@@ -496,7 +496,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                                instrumentedBinDirPath, androidJar.getAbsolutePath())
 
     // move stubs in with the apps
-    Process(Seq("mv", s"$droidelHome${File.separator}$STUB_DIR", s"$instrumentedBinDir${File.separator}${STUB_DIR}")).!!
+    Process(Seq("mv", STUB_DIR, s"$instrumentedBinDir${File.separator}${STUB_DIR}")).!!
 
     instrumentedBinDir
   }
@@ -507,14 +507,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     Process(Seq("cp", "-r", appBinPath, instrumentedBinDirPath)).!!
 
     // move stubs in with the instrumented bytecodes
-    Process(Seq("mv", s"$droidelHome${File.separator}$STUB_DIR", s"$instrumentedBinDirPath${File.separator}${STUB_DIR}")).!!
+    Process(Seq("mv", STUB_DIR, s"$instrumentedBinDirPath${File.separator}${STUB_DIR}")).!!
 
     // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
     val harnessGen = new SimpleAndroidHarnessGenerator()
     harnessGen.generateHarness(instrumentedBinDirPath, androidJar.getAbsolutePath)
     new File(instrumentedBinDirPath)
   }
-
 
   def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) :
     (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], Iterable[InhabitedLayoutElement], List[File]) = {
