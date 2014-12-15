@@ -53,7 +53,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
   
   val unprocessedBinPath = s"${appPath}${BIN_SUFFIX}"
-  private val appBinPath = { // path to the bytecodes for the app       
+  val appBinPath = { // path to the bytecodes for the app
     if (useJPhantom) {
       // check for bytecodes that have been processed with JPhantom and use them
       // if they exist. otherwise, create them

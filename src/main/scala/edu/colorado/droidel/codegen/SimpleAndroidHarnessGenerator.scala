@@ -60,6 +60,7 @@ class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
 
     writer.emitEmptyLine()
     writer.beginMethod("void", HARNESS_MAIN, EnumSet.of(PUBLIC, STATIC)) // begin harness method
+    //writer.emitStatement(s"com.android.server.SystemServer.main(null)")
     writer.emitStatement(s"android.app.ActivityThread.main(new $STUBS_CLASS())")
     writer.endMethod() // end harness method
     writer.endType() // end harness class

@@ -10,32 +10,33 @@ import com.ibm.wala.ipa.callgraph.propagation.cfa.{ZeroXContainerCFABuilder, Zer
 import com.ibm.wala.ipa.callgraph.{AnalysisCache, AnalysisOptions, AnalysisScope, CallGraphBuilder, ClassTargetSelector, ContextSelector, Entrypoint, MethodTargetSelector}
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.walautil.WalaAnalysisResults
+import edu.colorado.walautil.{ClassUtil, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
 
 class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "Landroid/app/ActivityThread",
                        harnessMethod : String = "main") {
-  
-  val cha = ClassHierarchy.make(analysisScope)
+
+  private val _harnessClass =
+    if (!harnessClass.startsWith("L") || harnessClass.contains(".")) ClassUtil.walaifyClassName(harnessClass)
+    else harnessClass
+
+  private val cha = ClassHierarchy.make(analysisScope)
   
   def makeAndroidCallGraph() : WalaAnalysisResults = {    
-    val entrypoints = makeEntrypoints    
+    val entrypoints = makeEntrypoints
+    assert(!entrypoints.isEmpty, s"Couldn't find entrypoint method $harnessMethod in class ${_harnessClass}")
     val options = makeOptions(entrypoints)        
     val cache = new AnalysisCache
     
     // finally, build the call graph and extract the points-to analysis
     val cgBuilder = makeCallGraphBuilder(options, cache)
-    // very important to do this *after* creating the call graph builder
-    //addBypassLogic(options, analysisScope, cha)
-    //options.setSelector(makeClassTargetSelector)
-    //options.setSelector(makeMethodTargetSelector)
     new WalaAnalysisResults(cgBuilder.makeCallGraph(options, null),
 			                      cgBuilder.getPointerAnalysis())
   }     
   
   def makeEntrypoints() : Iterable[Entrypoint] = {  
-    def isEntrypointClass(c : IClass) : Boolean = c.getName().toString() == harnessClass 
+    def isEntrypointClass(c : IClass) : Boolean = c.getName().toString() == _harnessClass
     def isEntrypointMethod(m : IMethod) : Boolean = m.getName().toString() == harnessMethod 
     def mkEntrypoint(m : IMethod, cha : IClassHierarchy) = new ArgumentTypeEntrypoint(m, cha)
     
