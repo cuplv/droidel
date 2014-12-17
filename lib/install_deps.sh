@@ -16,10 +16,6 @@ mkdir apktool
 mv apktool_2.0.0rc2.jar apktool/apktool.jar
 
 # download dex2jar
-# wget http://dex2jar.googlecode.com/files/dex2jar-0.0.9.15.zip
-# unzip dex2jar-0.0.9.15.zip
-# mv dex2jar-0.0.9.15 dex2jar
-# rm dex2jar-0.0.9.15.zip
 wget http://downloads.sourceforge.net/project/dex2jar/dex2jar-2.0-20140818.061505-10.zip
 unzip dex2jar-2.0-20140818.061505-10.zip
 mv dex2jar-2.0-SNAPSHOT dex2jar
