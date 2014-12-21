@@ -73,7 +73,7 @@ class AbsurdityIdentifier(harnessClassName : String) {
     val haveAbsurdities = !absurdities.isEmpty
     if (!haveAbsurdities) println("Found no absurdities.")
     else {
-      println(s"Found ${absurdities.size} asurdities: ")
+      println(s"Found ${absurdities.size} absurdities: ")
       println("<absurdities>")
       absurdities.foreach(println)
       println("</absurdities>")

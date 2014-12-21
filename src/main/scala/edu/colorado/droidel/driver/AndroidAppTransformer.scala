@@ -45,11 +45,13 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   private val libJars = {     
     // load libraries in "the libs" directory if they exist
     val libsDir = new File(s"${appPath}${LIB_SUFFIX}")
-    if (libsDir.exists) libsDir.listFiles().toList.map(f => {
+    if (libsDir.exists) libsDir.listFiles().toList.filter(f =>
       // TODO: only expecting JAR files here -- be more robust
-      assert(f.getName().endsWith(".jar"), s"Unexpected kind of input lib file $f")
-      f
-    }) else List.empty[File]
+      if (!f.getName().endsWith(".jar")) {
+        println(s"Warning: Unexpected kind of input lib file $f; expected JAR. Excluding.")
+        false
+      } else true
+    ) else List.empty[File]
   }
   
   val unprocessedBinPath = s"${appPath}${BIN_SUFFIX}"
