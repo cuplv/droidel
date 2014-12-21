@@ -39,7 +39,7 @@ Setting up an Android framework JAR
 -----------------------------------
 In order to run Droidel, you first need to generate a JAR file for the Android framework that has been injected with Droidel's stub interfaces. Do this by moving the Android JAR you want to use into the `stubs` directory and running `compile_stubs.sh <android_jar>` in the `stubs` directory. The resulting injected JAR will be places in `stubs/out/droidel_<android_jar>`.
 
-Droidel has been tested using the [Android 4.2.2](http://grepcode.com/snapshot/repository.grepcode.com/java/ext/com.google.android/android/4.2.2_r1) JAR. Other versions of Android may require slight adjustments to the stubs in order to compile.
+Droidel has been tested using the [Android 4.4.2](http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar) JAR. Other versions of Android may require slight adjustments to the stubs in order to compile.
 
 
 Running Droidel
