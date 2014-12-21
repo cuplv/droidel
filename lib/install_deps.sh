@@ -20,4 +20,5 @@ wget http://downloads.sourceforge.net/project/dex2jar/dex2jar-2.0-20140818.06150
 unzip dex2jar-2.0-20140818.061505-10.zip
 mv dex2jar-2.0-SNAPSHOT dex2jar
 rm dex2jar-2.0-20140818.061505-10.zip
+chmod 755 dex2jar/*.sh
 
