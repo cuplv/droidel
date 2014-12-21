@@ -16,7 +16,8 @@ class ApkDecoder(apkPath : String, droidelHome : String) {
   
   def decodeApp() : File = {
     val outputDir = new File(apkName)
-    if (outputDir.exists()) {
+    val decodedClassesDir = new File(s"${outputDir.getAbsolutePath()}/bin/classes")
+    if (decodedClassesDir.exists()) {
       println("APK already decoded, using previous results")
       outputDir
     } else {
@@ -24,7 +25,7 @@ class ApkDecoder(apkPath : String, droidelHome : String) {
       val decompiledJar = decompile
    
       // extract the decompiled jar in outputResDir/bin/classes
-      JavaUtil.extractJar(decompiledJar, s"${outputDir.getAbsolutePath()}/bin/classes")
+      JavaUtil.extractJar(decompiledJar, decodedClassesDir.getAbsolutePath)
       decompiledJar.delete() // delete the jar produced by dex2jar
       outputDir
     }
