@@ -10,7 +10,7 @@ import com.ibm.wala.ipa.callgraph.propagation.cfa.ZeroXInstanceKeys
 import com.ibm.wala.ipa.callgraph.{AnalysisCache, AnalysisOptions, AnalysisScope, CallGraphBuilder, ClassTargetSelector, ContextSelector, Entrypoint, MethodTargetSelector}
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import edu.colorado.droidel.constants.DroidelConstants
-import edu.colorado.walautil.cg.ImprovedZeroXContainerCFABuilder
+import edu.colorado.walautil.cg.MemoryFriendlyZeroXContainerCFABuilder
 import edu.colorado.walautil.{ClassUtil, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
@@ -66,7 +66,7 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "L
     addBypassLogic(options, analysisScope, cha)
     val defaultInstancePolicy = ZeroXInstanceKeys.ALLOCATIONS | ZeroXInstanceKeys.SMUSH_MANY |
       ZeroXInstanceKeys.SMUSH_STRINGS | ZeroXInstanceKeys.SMUSH_THROWABLES
-    new ImprovedZeroXContainerCFABuilder(cha, options, cache, null, null, defaultInstancePolicy)
+    new MemoryFriendlyZeroXContainerCFABuilder(cha, options, cache, null, null, defaultInstancePolicy)
   }
   
   // override to specify custom context interpreters and selectors
