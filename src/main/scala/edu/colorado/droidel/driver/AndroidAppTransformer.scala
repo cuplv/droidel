@@ -504,8 +504,11 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   private def generateFrameworkDependentHarness() : File = {
-    // create fresh directory for instrumented bytecodes
     val instrumentedBinDirPath = s"${appPath}${DROIDEL_BIN_SUFFIX}"
+    val instrumentedBinDirFile = new File(instrumentedBinDirPath)
+    // delete instrumented bytecode directory if it exists
+    if (instrumentedBinDirFile.exists()) Process(Seq("rm", "-r", instrumentedBinDirPath)).!!
+    // create copy of app bytecodes to place instrumented bytecodes in
     Process(Seq("cp", "-r", appBinPath, instrumentedBinDirPath)).!!
 
     // move stubs in with the instrumented bytecodes
@@ -514,7 +517,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
     val harnessGen = new SimpleAndroidHarnessGenerator()
     harnessGen.generateHarness(instrumentedBinDirPath, androidJar.getAbsolutePath)
-    new File(instrumentedBinDirPath)
+    instrumentedBinDirFile
   }
 
   def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) :
