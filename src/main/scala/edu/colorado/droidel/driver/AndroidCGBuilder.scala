@@ -6,10 +6,11 @@ import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisOptions.ReflectionOptions
 import com.ibm.wala.ipa.callgraph.impl.{ArgumentTypeEntrypoint, ClassHierarchyClassTargetSelector, ClassHierarchyMethodTargetSelector}
 import com.ibm.wala.ipa.callgraph.propagation.SSAContextInterpreter
-import com.ibm.wala.ipa.callgraph.propagation.cfa.{ZeroXContainerCFABuilder, ZeroXInstanceKeys}
+import com.ibm.wala.ipa.callgraph.propagation.cfa.ZeroXInstanceKeys
 import com.ibm.wala.ipa.callgraph.{AnalysisCache, AnalysisOptions, AnalysisScope, CallGraphBuilder, ClassTargetSelector, ContextSelector, Entrypoint, MethodTargetSelector}
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
 import edu.colorado.droidel.constants.DroidelConstants
+import edu.colorado.walautil.cg.ImprovedZeroXContainerCFABuilder
 import edu.colorado.walautil.{ClassUtil, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
@@ -63,10 +64,9 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "L
     assert(options.getClassTargetSelector() == null, "Class target selector should not be set at this point.")
     com.ibm.wala.ipa.callgraph.impl.Util.addDefaultSelectors(options, cha)
     addBypassLogic(options, analysisScope, cha)
-    val defaultInstancePolicy = ZeroXInstanceKeys.ALLOCATIONS | ZeroXInstanceKeys.SMUSH_MANY | 
-                                ZeroXInstanceKeys.SMUSH_STRINGS | ZeroXInstanceKeys.SMUSH_THROWABLES
-    new ZeroXContainerCFABuilder(cha, options, cache, makeContextSelector(options, cha),
-                                 makeContextInterpreter(options, cache), defaultInstancePolicy)
+    val defaultInstancePolicy = ZeroXInstanceKeys.ALLOCATIONS | ZeroXInstanceKeys.SMUSH_MANY |
+      ZeroXInstanceKeys.SMUSH_STRINGS | ZeroXInstanceKeys.SMUSH_THROWABLES
+    new ImprovedZeroXContainerCFABuilder(cha, options, cache, null, null, defaultInstancePolicy)
   }
   
   // override to specify custom context interpreters and selectors
