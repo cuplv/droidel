@@ -28,8 +28,9 @@ class ManifestDeclaredCallbackStubGenerator extends AndroidStubGenerator {
         else "else if"
       writer.beginControlFlow(s"$cond ($context instanceof $classString)")
       writer.emitStatement(s"$classString $classVarName = ($classString) $context")
+      // TODO: using "nondetBool" is sound, but not precise--the framework actually tests the View id
       val callPrefix = if (cbs.size > 1) "if (droidelhelpers.Nondet.nondetBool())" else ""
-      writer.emitStatement(s"$callPrefix $classVarName.${cbs.head.getName.toString}($view)")
+      cbs.foreach(cb => writer.emitStatement(s"$callPrefix $classVarName.${cb.getName.toString}($view)"))
       writer.endControlFlow()
     })
 
