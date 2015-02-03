@@ -28,7 +28,7 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "L
     val entrypoints = makeEntrypoints
     assert(!entrypoints.isEmpty, s"Couldn't find entrypoint method $harnessMethod in class ${_harnessClass}")
     val options = makeOptions(entrypoints)        
-    val cache = new AnalysisCache
+    val cache = new AnalysisCache()
     
     // finally, build the call graph and extract the points-to analysis
     val cgBuilder = makeCallGraphBuilder(options, cache)
@@ -79,7 +79,6 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "L
     val nativeSpec = new File(s"${DroidelConstants.DROIDEL_HOME}/config/natives.xml")
     assert(nativeSpec.exists(), s"Can't find native spec ${nativeSpec.getAbsolutePath}")
     com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec(nativeSpec.getAbsolutePath)
-    //com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec("config/natives.xml")
     com.ibm.wala.ipa.callgraph.impl.Util.addDefaultBypassLogic(options, analysisScope,
       classOf[com.ibm.wala.ipa.callgraph.impl.Util].getClassLoader(), cha)
   }

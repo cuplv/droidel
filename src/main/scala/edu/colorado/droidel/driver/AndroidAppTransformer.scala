@@ -3,11 +3,14 @@ package edu.colorado.droidel.driver
 import java.io.File
 import java.util.jar.JarFile
 
-import com.ibm.wala.classLoader.{IClass, IMethod}
+import com.ibm.wala.classLoader.{IField, IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisScope
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
-import com.ibm.wala.shrikeBT.MethodEditor.Patch
+import com.ibm.wala.shrikeBT.{IInvokeInstruction, DupInstruction, NewInstruction, MethodEditor}
+import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
+import com.ibm.wala.shrikeBT._
+import com.ibm.wala.types.annotations.Annotation
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen._
 import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle}
@@ -88,6 +91,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
 
   val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))
+
+  val INSTRUMENTED_JAR_NAME = "instrumented.jar"
 
   /** @return true if the app has already been processed by Droidel */
   def isAppDroidelProcessed() : Boolean =
@@ -256,7 +261,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       case v : LayoutInclude => m // happens when an include goes unresolved
     }))
   }
-  
+
+  def makeClassfileName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"
+
   private def instrumentForApplicationAllocatedCallbackTypes(cha : IClassHierarchy,
     appCreatedCbMap : Map[IClass,Set[IMethod]], patchMap : Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]],
     instrumentCbAllocs : Boolean = true) : (File, Iterable[FieldReference]) = {
@@ -265,8 +272,6 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     def getFreshDummyFieldName : String = { dummyID += 1; s"extracted_$dummyID" }
             
     val harnessClassName = s"L${HARNESS_DIR}${File.separator}${HARNESS_CLASS}"
-
-    def makeClassName(clazz : IClass) : String = s"${ClassUtil.stripWalaLeadingL(clazz.getName().toString())}.class"   
 
     // map from classes to sets of callback classes they extend
     val cbImplMap =
@@ -338,7 +343,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
             (newFlds, newAllocs, newCalls)
           } else trio
         })
-        val className = makeClassName(clazz)
+        val className = makeClassfileName(clazz)
         val newCalls  = if (stubMap.isEmpty) trio._3 else trio._3 + (className -> stubMap)
         val (newFlds, newAllocs) = if (allocMap.isEmpty) (trio._1, trio._2) else (flds, trio._2 + (className -> allocMap))
         (newFlds, newAllocs, newCalls)
@@ -356,36 +361,39 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       else appCreatedCbMap.foldLeft (Map.empty[String,Set[IMethod]]) ((m, entry) => entry._2.filter(m => !m.isPublic()) match {
         case needToMakePublic if needToMakePublic.isEmpty => m
         case needToMakePublic => needToMakePublic.foldLeft (m) ((m, method) =>
-          Util.updateSMap(m, makeClassName(method.getDeclaringClass()), method)
+          Util.updateSMap(m, makeClassfileName(method.getDeclaringClass()), method)
         )
       })
     if (!cbsToMakePublic.isEmpty || !allocMap.isEmpty || !stubMap.isEmpty) { // if there is instrumentation to do
       println("Performing bytecode instrumentation")
       val toInstrumentJarName = "toInstrument.jar"
-      val instrumentedJarOutputName = "instrumented.jar"
       // create JAR containing classes to instrument only
       val toInstrument =
         JavaUtil.createJar(appBinFile, toInstrumentJarName, "", startInsideDir = true, j => j.isDirectory() ||
                            cbsToMakePublic.contains(j.getName()) || allocMap.contains(j.getName()) || stubMap.contains(j.getName()))
       // perform instrumentation
       val instrumentedJar =
-        new BytecodeInstrumenter().doIt(toInstrument, allocMap, stubMap, cbsToMakePublic, instrumentedJarOutputName)
-      assert(instrumentedJar.exists(), s"Instrumentation did not create JAR file $instrumentedJar")
-      
-      // merge JAR containing instrumented classes on top of JAR containing original app. very important that
-      // instrumented JAR comes first in the sequence passed to mergeJars, since we want to overwrite some entries in
-      // the original JAR
-      val mergedJarName = "merged.jar"
-      JavaUtil.mergeJars(Seq(instrumentedJar, originalJar), mergedJarName, duplicateWarning = false)
-      val newJar = new File(mergedJarName)
-      // rename merged JAR to original JAR name
-      if (originalJar.exists()) originalJar.delete()
-      newJar.renameTo(originalJar)
+        new BytecodeInstrumenter().doIt(toInstrument, allocMap, stubMap, Map.empty, cbsToMakePublic, INSTRUMENTED_JAR_NAME)
       toInstrument.delete() // cleanup JAR containing classes to instrument
-      instrumentedJar.delete() // cleanup instrumented JAR output
+      mergeInstrumentedAndOriginalJars(instrumentedJar , originalJar)
     }
     
     (originalJar, instrFlds)
+  }
+
+  private def mergeInstrumentedAndOriginalJars(instrumentedJar : File, originalJar : File) : File = {
+    assert(instrumentedJar.exists(), s"Instrumentation did not create JAR file $instrumentedJar")
+    // merge JAR containing instrumented classes on top of JAR containing original app. very important that
+    // instrumented JAR comes first in the sequence passed to mergeJars, since we want to overwrite some entries in
+    // the original JAR
+    val mergedJarName = "merged.jar"
+    JavaUtil.mergeJars(Seq(instrumentedJar, originalJar), mergedJarName, duplicateWarning = false)
+    val newJar = new File(mergedJarName)
+    // rename merged JAR to original JAR name
+    if (originalJar.exists()) originalJar.delete()
+    if (instrumentedJar.exists()) instrumentedJar.delete()
+    newJar.renameTo(instrumentedJar)
+    newJar
   }
 
   // make a map from framework class -> set of application classes implementing framework class)
@@ -422,6 +430,79 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     })
 
     m
+  }
+
+  private def hasDependencyInjectionAnnotation(f : IField) : Boolean = {
+    // TODO: hack, replace with list of known dependency injection annotations
+    def isInjectionAnnotation(a : Annotation) : Boolean = {
+      val annotName = a.getType().getName().toString()
+      annotName.toLowerCase.contains("inject")
+    }
+
+    f.getAnnotations match {
+      case null => false
+      case annots => annots.exists(a => isInjectionAnnotation(a))
+    }
+  }
+
+  private def getDependencyInjectedFields(cha : IClassHierarchy) =
+    cha.foldLeft (Map.empty[String,Map[IMethod,Iterable[(Int,Patch)]]]) ((m, c) =>
+      if (ClassUtil.isLibrary(c)) m
+      else {
+        // TODO: handle dependecy injection on static fields as well? don't think this is common in practice
+        val dependencyInjectedFields = c.getDeclaredInstanceFields().filter(f => hasDependencyInjectionAnnotation(f))
+        if (dependencyInjectedFields.isEmpty) m
+        else {
+          val constructors = c.getDeclaredMethods.filter(method => method.isInit)
+          assert(!constructors.isEmpty)
+          val patch =
+            new MethodEditor.Patch() {
+            override def emitTo(o : Output) : Unit = {
+              dependencyInjectedFields.foreach(f => {
+                val fieldName = f.getName.toString
+                val fieldDeclaringClass = ClassUtil.typeRefToBytecodeType(c.getReference)
+                val typ = f.getFieldTypeReference
+                val fieldType = ClassUtil.typeRefToBytecodeType(typ)
+                val isStatic = false
+                // load "this"
+                o.emit(LoadInstruction.make(ClassUtil.typeRefToBytecodeType(TypeReference.JavaLangObject), 0))
+                o.emit(NewInstruction.make(fieldType, typ.getDimensionality)) // allocate field type
+                o.emit(DupInstruction.make(0)) // copy instruction on top of stack
+                // call empty constructor on allocated cell
+                o.emit(InvokeInstruction.make("()V", fieldType, "<init>", IInvokeInstruction.Dispatch.SPECIAL))
+                // write allocated cell into this.field
+                o.emit(PutInstruction.make(fieldType, fieldDeclaringClass, fieldName, isStatic))
+              })
+            }
+          }
+          val innerMap =
+            constructors.foldLeft (Map.empty[IMethod,Iterable[(Int,Patch)]]) ((m, constructor) =>
+              m + (constructor -> Iterable((1, patch)))
+            )
+          m + (makeClassfileName(c) -> innerMap)
+        }
+      }
+    )
+
+  private def instrumentForDependencyInjection(cha : IClassHierarchy) : Unit = {
+    val depInjectedFields = getDependencyInjectedFields(cha)
+    if (depInjectedFields.nonEmpty) {
+      println("Performing bytecode instrumentation to explicate dependency injection")
+      // create JAR containing original classes
+      val originalJarName = "original.jar"
+      val appBinFile = new File(appBinPath)
+      val originalJar = JavaUtil.createJar(appBinFile, originalJarName, "", startInsideDir = true)
+      val toInstrumentJarName = "toInstrument.jar"
+      // create JAR containing classes to instrument only
+      val toInstrument =
+        JavaUtil.createJar(appBinFile, toInstrumentJarName, "", startInsideDir = true,
+                           j => j.isDirectory() || depInjectedFields.contains(j.getName))
+      val instrumentedJar =
+        new BytecodeInstrumenter()
+        .doIt(toInstrument, Map.empty, Map.empty, insertMap = depInjectedFields, Map.empty, INSTRUMENTED_JAR_NAME)
+      toInstrument.delete() // cleanup JAR containing classes to instrument
+      mergeInstrumentedAndOriginalJars(instrumentedJar, originalJar)
+    }
   }
 
   private def doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap : Map[IClass,Set[IClass]],
@@ -508,8 +589,14 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val instrumentedBinDirFile = new File(instrumentedBinDirPath)
     // delete instrumented bytecode directory if it exists
     if (instrumentedBinDirFile.exists()) Process(Seq("rm", "-r", instrumentedBinDirPath)).!!
-    // create copy of app bytecodes to place instrumented bytecodes in
-    Process(Seq("cp", "-r", appBinPath, instrumentedBinDirPath)).!!
+
+    val instrumentedJar = new File(INSTRUMENTED_JAR_NAME)
+    if (instrumentedJar.exists()) {
+      instrumentedBinDirFile.mkdir()
+      // extract the JAR containing the instrumented class files into the new bin dir
+      Process(Seq("jar", "xvf", instrumentedJar.getAbsolutePath()), instrumentedBinDirFile).!!
+      instrumentedJar.delete() // cleanup instrumented JAR
+    } else Process(Seq("cp", "-r", appBinPath, instrumentedBinDirPath)).!! // just make a copy of app bytecodes
 
     // move stubs in with the instrumented bytecodes
     Process(Seq("mv", STUB_DIR, s"$instrumentedBinDirPath${File.separator}${STUB_DIR}")).!!
@@ -617,6 +704,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       doInstrumentationAndGenerateHarness(frameworkCreatedTypesMap, manifestDeclaredCallbackMap,
                                           inhabitedLayoutElems, stubMap, stubPaths, cha)
     } else {
+      // instrument the bytecode to add allocation instructions for dependency injection
+      instrumentForDependencyInjection(cha)
       // generated app-specialized stubs for lifecycle types (Activity's, Service's, etc.)
       generateFrameworkCreatedTypesStubs(frameworkCreatedTypesMap, cha)
       generateManifestDeclaredCallbackStubs(manifestDeclaredCallbackMap, cha)

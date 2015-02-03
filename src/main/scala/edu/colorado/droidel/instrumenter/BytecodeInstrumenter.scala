@@ -2,17 +2,19 @@ package edu.colorado.droidel.instrumenter
 
 import java.io.{BufferedWriter, File, OutputStreamWriter}
 
-import com.ibm.wala.classLoader.IMethod
+import com.ibm.wala.classLoader.{IField, IMethod}
 import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
 import com.ibm.wala.shrikeBT.analysis.Verifier
 import com.ibm.wala.shrikeBT.shrikeCT.{ClassInstrumenter, OfflineInstrumenter}
-import com.ibm.wala.shrikeBT.{Disassembler, DupInstruction, MethodData, MethodEditor, PutInstruction}
+import com.ibm.wala.shrikeBT._
 import com.ibm.wala.shrikeCT.ClassWriter.Element
 import com.ibm.wala.shrikeCT.{ClassConstants, ClassReader, ClassWriter}
 import com.ibm.wala.types.FieldReference
 import edu.colorado.walautil.ClassUtil
 
 
+// TODO: this really needs to be refactored to take less parameters and enable using different pieces of functionality
+// individually
 class BytecodeInstrumenter {
   val DEBUG = false
   val instrumenter = new OfflineInstrumenter(true)
@@ -21,6 +23,7 @@ class BytecodeInstrumenter {
   
   def doIt(inJar : File, instrumentationMap : Map[ClassName, Map[IMethod,Iterable[(Int, Iterable[FieldReference])]]],
            stubMap : Map[ClassName,Map[IMethod, Iterable[(Int, Patch)]]],
+           insertMap : Map[ClassName,Map[IMethod, Iterable[(Int, Patch)]]],
            cbsToMakePublic : Map[ClassName, Set[IMethod]], outJarName : String) : File = {
     require(inJar.exists(), s"Can't find inJar $inJar")
     // tell the instrumenter what classes we are going to instrument
@@ -38,10 +41,12 @@ class BytecodeInstrumenter {
       case null => ()
       case curClass =>
         val className = s"${curClass.getReader().getName()}.class"
-        val toInstrument = instrumentationMap.getOrElse(className, Map.empty[IMethod, Iterable[(Int, Iterable[FieldReference])]])
-        val toStub = stubMap.getOrElse(className, Map.empty[IMethod,Iterable[(Int, Patch)]])
+        val toInstrument = instrumentationMap.getOrElse(className, Map.empty)
+        val toStub = stubMap.getOrElse(className, Map.empty)
+        val toInsert = insertMap.getOrElse(className, Map.empty)
         val toMakePublic = cbsToMakePublic.getOrElse(className, Set.empty[IMethod])        
-        if (!toInstrument.isEmpty || !toStub.isEmpty || !toMakePublic.isEmpty) doInstrumentation(curClass, toInstrument, toStub, toMakePublic)        
+        if (toInstrument.nonEmpty || toStub.nonEmpty || toMakePublic.nonEmpty || toInsert.nonEmpty)
+          doInstrumentation(curClass, toInstrument, toStub, toInsert, toMakePublic)
         instrumentRec
     }                
     
@@ -109,8 +114,9 @@ class BytecodeInstrumenter {
   }   
   
   private def doInstrumentation(ci : ClassInstrumenter, toInstrument : Map[IMethod,Iterable[(Int, Iterable[FieldReference])]], 
-                                 toStub : Map[IMethod,Iterable[(Int, Patch)]],
-                                 toMakePublic : Set[IMethod]) : Unit = {
+                                toStub : Map[IMethod,Iterable[(Int, Patch)]],
+                                toInsert : Map[IMethod,Iterable[(Int, Patch)]],
+                                toMakePublic : Set[IMethod]) : Unit = {
     if (DEBUG) println(s"Instrumenting class ${ci.getReader().getName()}")
     def getMethod(methodData : MethodData, methods : Iterable[IMethod]) : Option[IMethod] = methods.find(m =>       
       methodData.getName() == m.getName().toString() && 
@@ -131,8 +137,9 @@ class BytecodeInstrumenter {
         case methodData =>
           val allocsTodo = getInstrumentationFromMap(methodData, toInstrument)
           val stubsTodo = getInstrumentationFromMap(methodData, toStub)
+          val insertTodo = getInstrumentationFromMap(methodData, toInsert)
           val methodName = methodData.getName()
-          if (!allocsTodo.isEmpty || !stubsTodo.isEmpty) {
+          if (allocsTodo.nonEmpty || stubsTodo.nonEmpty || toInsert.nonEmpty) {
             if (DEBUG) println(s"Instrumenting method $methodName")
             new Verifier(methodData).verify() // sanity check: verify the input bytecode          
               
@@ -143,8 +150,8 @@ class BytecodeInstrumenter {
             }          
               
             val methodEditor = new MethodEditor(methodData)
-            methodEditor.beginPass()                
-            
+            methodEditor.beginPass()
+
             // transform each allocation x = new T() to { x := new T(); staticFieldName := x }
             // at the bytecode level, this is a transformation from new to { new T; dup; putstatic T staticFieldName }
             allocsTodo.foreach(pair => pair._2.foreach(staticField => 
@@ -163,7 +170,9 @@ class BytecodeInstrumenter {
             
             // transform calls to findViewById/findFragmentById with a constant first argument to view-specialized stubs
             stubsTodo.foreach(pair => methodEditor.replaceWith(pair._1, pair._2))
-                              
+            // prepend assignments to dependency-injected fields
+            insertTodo.foreach(pair => methodEditor.insertAfter(pair._1, pair._2))
+
             methodEditor.applyPatches() // commit the changes
               
             if (DEBUG) {
@@ -173,7 +182,7 @@ class BytecodeInstrumenter {
               writer.flush()
             }
                 
-            assert(ci.isChanged(), s"Instrumentation of $methodName didn't change the method")
+            //assert(ci.isChanged(), s"Instrumentation of $methodName didn't change the method")
             if (DEBUG) println(s"Transformed method $methodName")
           }
           // done doing instrumentation (if we did it at all), now check to see if method needs to be made public
