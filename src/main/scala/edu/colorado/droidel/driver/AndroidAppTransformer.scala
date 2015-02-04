@@ -459,19 +459,31 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
             new MethodEditor.Patch() {
             override def emitTo(o : Output) : Unit = {
               dependencyInjectedFields.foreach(f => {
-                val fieldName = f.getName.toString
-                val fieldDeclaringClass = ClassUtil.typeRefToBytecodeType(c.getReference)
-                val typ = f.getFieldTypeReference
-                val fieldType = ClassUtil.typeRefToBytecodeType(typ)
-                val isStatic = false
-                // load "this"
-                o.emit(LoadInstruction.make(ClassUtil.typeRefToBytecodeType(TypeReference.JavaLangObject), 0))
-                o.emit(NewInstruction.make(fieldType, typ.getDimensionality)) // allocate field type
-                o.emit(DupInstruction.make(0)) // copy instruction on top of stack
-                // call empty constructor on allocated cell
-                o.emit(InvokeInstruction.make("()V", fieldType, "<init>", IInvokeInstruction.Dispatch.SPECIAL))
-                // write allocated cell into this.field
-                o.emit(PutInstruction.make(fieldType, fieldDeclaringClass, fieldName, isStatic))
+                val fieldTypeClass = cha.lookupClass(f.getFieldTypeReference)
+                if (fieldTypeClass != null) {
+                  val chosenFieldTypeClass =
+                    if (fieldTypeClass.isAbstract || fieldTypeClass.isInterface)
+                    // we can't allocate an abstract type or an interface--choose a subclass instead
+                      cha.computeSubClasses(fieldTypeClass.getReference).find(c => !c.isAbstract && !c.isInterface)
+                    else Some(fieldTypeClass)
+                  chosenFieldTypeClass match {
+                    case Some(chosenFieldTypeClass) =>
+                      val fieldTypeRef = chosenFieldTypeClass.getReference
+                      val fieldName = f.getName.toString
+                      val fieldDeclaringClass = ClassUtil.typeRefToBytecodeType(c.getReference)
+                      val fieldType = ClassUtil.typeRefToBytecodeType(fieldTypeRef)
+                      val isStatic = false
+                      // load "this"
+                      o.emit(LoadInstruction.make(ClassUtil.typeRefToBytecodeType(TypeReference.JavaLangObject), 0))
+                      o.emit(NewInstruction.make(fieldType, fieldTypeRef.getDimensionality)) // allocate field type
+                      o.emit(DupInstruction.make(0)) // copy instruction on top of stack
+                      // call empty constructor on allocated cell
+                      o.emit(InvokeInstruction.make("()V", fieldType, "<init>", IInvokeInstruction.Dispatch.SPECIAL))
+                      // write allocated cell into this.field
+                      o.emit(PutInstruction.make(fieldType, fieldDeclaringClass, fieldName, isStatic))
+                    case None => ()
+                  }
+                }
               })
             }
           }
