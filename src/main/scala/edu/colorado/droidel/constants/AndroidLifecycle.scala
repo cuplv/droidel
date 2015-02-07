@@ -87,17 +87,25 @@ object AndroidLifecycle {
     APP_FRAGMENT_TYPE -> List(FRAGMENT_ONCREATE, 
                               FRAGMENT_ONSTART)
   )
-    
-  def getFrameworkCreatedClasses(cha : IClassHierarchy) : Iterable[IClass] =
-    frameworkCbMap.keys.foldLeft (List.empty[IClass]) ((l, c) => {
-      val clazz = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(c)))
-      if (clazz == null) {
-        println(s"Warning: couldn't find $c in class hierarchy")
-        l
-      } else clazz :: l
-  })
+
+  // can't use a lazy val because we need the class hierarchy to construct
+  private var frameworkCreatedClasses : Set[IClass] = null
+
+  def getOrCreateFrameworkCreatedClasses(cha : IClassHierarchy) : Set[IClass] = {
+    if (frameworkCreatedClasses == null) {
+      frameworkCreatedClasses = frameworkCbMap.keys.foldLeft(Set.empty[IClass])((s, c) => {
+        val clazz = cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(c)))
+        if (clazz == null) {
+          println(s"Warning: couldn't find $c in class hierarchy")
+          s
+        } else s + clazz
+      })
+    }
+    frameworkCreatedClasses
+  }
   
-  def isFrameworkCreatedType(c : IClass, cha : IClassHierarchy) : Boolean = getFrameworkCreatedClasses(cha).contains(c)
+  def isFrameworkCreatedType(c : IClass, cha : IClassHierarchy) : Boolean =
+    getOrCreateFrameworkCreatedClasses(cha).contains(c)
   
   def getCallbacksOnFrameworkCreatedType(frameworkType : IClass, cha : IClassHierarchy) : Iterable[IMethod] = {
     val className = ClassUtil.deWalaifyClassName(frameworkType.getName())

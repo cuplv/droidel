@@ -400,7 +400,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   // TODO: use manifest to curate this list. right now we are (soundly, but imprecisely) including too much
   // TODO: curate by reasoning about callback registration. only need to include registered classes
   private def makeFrameworkCreatedTypesMap(cha : IClassHierarchy) : Map[IClass,Set[IClass]] = {
-    val m = AndroidLifecycle.getFrameworkCreatedClasses(cha).foldLeft(Map.empty[IClass, Set[IClass]])((m, c) =>
+    val m = AndroidLifecycle.getOrCreateFrameworkCreatedClasses(cha).foldLeft(Map.empty[IClass, Set[IClass]])((m, c) =>
       cha.computeSubClasses(c.getReference()).filter(c => !ClassUtil.isLibrary(c)) match {
         //case appSubclasses if appSubclasses.isEmpty => m
         case appSubclasses =>
