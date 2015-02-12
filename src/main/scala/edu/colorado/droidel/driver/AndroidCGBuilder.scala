@@ -23,12 +23,13 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "L
     else harnessClass
 
   private val cha = ClassHierarchy.make(analysisScope)
+
+  val cache = new AnalysisCache()
   
   def makeAndroidCallGraph() : WalaAnalysisResults = {    
     val entrypoints = makeEntrypoints
     assert(!entrypoints.isEmpty, s"Couldn't find entrypoint method $harnessMethod in class ${_harnessClass}")
-    val options = makeOptions(entrypoints)        
-    val cache = new AnalysisCache()
+    val options = makeOptions(entrypoints)
     
     // finally, build the call graph and extract the points-to analysis
     val cgBuilder = makeCallGraphBuilder(options, cache)
