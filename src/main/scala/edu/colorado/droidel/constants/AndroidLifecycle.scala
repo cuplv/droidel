@@ -21,8 +21,8 @@ object AndroidLifecycle {
   val ACTIVITY_ONRESUME = "onResume()V"
   val ACTIVITY_ONPOSTRESUME = "onPostResume()V"
   val ACTIVITY_ONATTACHEDTOWINDOW = "onAttachedToWindow()V"
-  val ACTIVITY_ONCREATEOPTIONSMENU = "onCreateOptionsMenu(Landroid/view/Menu;)B"
-  val ACTIVITY_ONPREPAREOPTIONSMENU = "onPrepareOptionsMenu(Landroid/view/Menu;)B"
+  val ACTIVITY_ONCREATEOPTIONSMENU = "onCreateOptionsMenu(Landroid/view/Menu;)Z"
+  val ACTIVITY_ONPREPAREOPTIONSMENU = "onPrepareOptionsMenu(Landroid/view/Menu;)Z"
   val ACTIVITY_ONCREATEDESCRIPTION = "onCreateDescription()Ljava/lang/CharSequence;"
   val ACTIVITY_ONSAVEINSTANCESTATE = "onSaveInstanceState(Landroid/os/Bundle;)V"
   val ACTIVITY_ONPAUSE = "onPause()V"
@@ -156,21 +156,33 @@ object AndroidLifecycle {
 
   // sources for Activity lifecycle info:
   // http://developer.android.com/training/basics/activity-lifecycle/starting.html
-  // https://github.com/xxv/android-lifecycle
+  // https://githuon.com/xxv/android-lifecycle
   def makeActivityLifecycleGraph(cha : IClassHierarchy) : GraphImpl[IMethod] = {
     val activityTypeName = TypeName.findOrCreate(ClassUtil.walaifyClassName(AndroidConstants.ACTIVITY_TYPE))
     val activityTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Primordial, activityTypeName)
-    val onCreate = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONCREATE, cha)
-    val onStart = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONSTART, cha)
-    val onResume = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONRESUME, cha)
-    val onPause = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONPAUSE, cha)
-    val onStop = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONSTOP, cha)
-    val onRestart = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONRESTART, cha)
-    val onDestroy = resolve(activityTypeRef, AndroidLifecycle.ACTIVITY_ONDESTROY, cha)
+    val onCreate = resolve(activityTypeRef, ACTIVITY_ONCREATE, cha)
+    val onAttachFragment = resolve(activityTypeRef, ACTIVITY_ONATTACHFRAGMENT, cha)
+    val onContentChanged = resolve(activityTypeRef, ACTIVITY_ONCONTENTCHANGED, cha)
+    val onStart = resolve(activityTypeRef, ACTIVITY_ONSTART, cha)
+    val onPostCreate = resolve(activityTypeRef, ACTIVITY_ONPOSTCREATE, cha)
+    val onResume = resolve(activityTypeRef, ACTIVITY_ONRESUME, cha)
+    val onAttachedToWindow = resolve(activityTypeRef, ACTIVITY_ONATTACHEDTOWINDOW, cha)
+    val onCreateOptionsMenu = resolve(activityTypeRef, ACTIVITY_ONCREATEOPTIONSMENU, cha)
+    val onPrepareOptionsMenu = resolve(activityTypeRef, ACTIVITY_ONPREPAREOPTIONSMENU, cha)
+    val onPause = resolve(activityTypeRef, ACTIVITY_ONPAUSE, cha)
+    val onStop = resolve(activityTypeRef, ACTIVITY_ONSTOP, cha)
+    val onRestart = resolve(activityTypeRef, ACTIVITY_ONRESTART, cha)
+    val onDestroy = resolve(activityTypeRef, ACTIVITY_ONDESTROY, cha)
     val g = new GraphImpl[IMethod](root = Some(onCreate))
-    g.addEdge(onCreate, onStart)
-    g.addEdge(onStart, onResume)
-    g.addEdge(onResume, onPause)
+    g.addEdge(onCreate, onAttachFragment)
+    g.addEdge(onAttachFragment, onContentChanged)
+    g.addEdge(onContentChanged, onStart)
+    g.addEdge(onStart, onPostCreate)
+    g.addEdge(onPostCreate, onResume)
+    g.addEdge(onResume, onAttachedToWindow)
+    g.addEdge(onAttachedToWindow, onCreateOptionsMenu)
+    g.addEdge(onCreateOptionsMenu, onPrepareOptionsMenu)
+    g.addEdge(onPrepareOptionsMenu, onPause)
     g.addEdge(onPause, onStop)
     g.addEdge(onStop, onRestart)
     g.addEdge(onRestart, onStart)
@@ -181,16 +193,16 @@ object AndroidLifecycle {
   // source: https://github.com/xxv/android-lifecycle
   def makeFragmentLifecycleGraph(fragmentTypeName : TypeName, cha : IClassHierarchy) : GraphImpl[IMethod] = {
     val fragmentTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Primordial, fragmentTypeName)
-    val onInflate = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONINFLATE, cha)
-    val onAttach = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONATTACH, cha)
-    val onCreateView = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONCREATEVIEW, cha)
-    val onViewCreated = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONVIEWCREATED, cha)
-    val onStart = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONSTART, cha)
-    val onResume = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONRESUME, cha)
-    val onPause = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONPAUSE, cha)
-    val onStop = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONSTOP, cha)
-    val onDestroyView = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONDESTROYVIEW, cha)
-    val onDetach = resolve(fragmentTypeRef, AndroidLifecycle.FRAGMENT_ONDETACH, cha)
+    val onInflate = resolve(fragmentTypeRef, FRAGMENT_ONINFLATE, cha)
+    val onAttach = resolve(fragmentTypeRef, FRAGMENT_ONATTACH, cha)
+    val onCreateView = resolve(fragmentTypeRef, FRAGMENT_ONCREATEVIEW, cha)
+    val onViewCreated = resolve(fragmentTypeRef, FRAGMENT_ONVIEWCREATED, cha)
+    val onStart = resolve(fragmentTypeRef, FRAGMENT_ONSTART, cha)
+    val onResume = resolve(fragmentTypeRef, FRAGMENT_ONRESUME, cha)
+    val onPause = resolve(fragmentTypeRef, FRAGMENT_ONPAUSE, cha)
+    val onStop = resolve(fragmentTypeRef, FRAGMENT_ONSTOP, cha)
+    val onDestroyView = resolve(fragmentTypeRef, FRAGMENT_ONDESTROYVIEW, cha)
+    val onDetach = resolve(fragmentTypeRef, FRAGMENT_ONDETACH, cha)
     val g = new GraphImpl[IMethod](root = Some(onAttach))
     g.addEdge(onInflate, onAttach)
     g.addEdge(onAttach, onCreateView)
@@ -212,11 +224,11 @@ object AndroidLifecycle {
   def makeServiceLifecycleGraph(cha : IClassHierarchy) : GraphImpl[IMethod] = {
     val serviceTypeName = TypeName.findOrCreate(ClassUtil.walaifyClassName(AndroidConstants.SERVICE_TYPE))
     val serviceTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Primordial, serviceTypeName)
-    val onCreate = resolve(serviceTypeRef, AndroidLifecycle.SERVICE_ONCREATE, cha)
-    val onStartCommand = resolve(serviceTypeRef, AndroidLifecycle.SERVICE_ONSTARTCOMMAND, cha)
-    val onBind = resolve(serviceTypeRef, AndroidLifecycle.SERVICE_ONBIND, cha)
-    val onUnbind = resolve(serviceTypeRef, AndroidLifecycle.SERVICE_ONUNBIND, cha)
-    val onDestroy = resolve(serviceTypeRef, AndroidLifecycle.SERVICE_ONDESTROY, cha)
+    val onCreate = resolve(serviceTypeRef, SERVICE_ONCREATE, cha)
+    val onStartCommand = resolve(serviceTypeRef, SERVICE_ONSTARTCOMMAND, cha)
+    val onBind = resolve(serviceTypeRef, SERVICE_ONBIND, cha)
+    val onUnbind = resolve(serviceTypeRef, SERVICE_ONUNBIND, cha)
+    val onDestroy = resolve(serviceTypeRef, SERVICE_ONDESTROY, cha)
     val g = new GraphImpl[IMethod](root = Some(onCreate))
     g.addEdge(onCreate, onStartCommand)
     g.addEdge(onCreate, onBind)
@@ -230,8 +242,8 @@ object AndroidLifecycle {
   def makeApplicationLifecycleGraph(cha : IClassHierarchy) : GraphImpl[IMethod] = {
     val applicationTypeName = TypeName.findOrCreate(ClassUtil.walaifyClassName(AndroidConstants.APPLICATION_TYPE))
     val applicationTypeRef = TypeReference.findOrCreate(ClassLoaderReference.Primordial, applicationTypeName)
-    val onCreate = resolve(applicationTypeRef, AndroidLifecycle.APPLICATION_ONCREATE, cha)
-    val onTerminate = resolve(applicationTypeRef, AndroidLifecycle.APPLICATION_ONTERMINATE, cha)
+    val onCreate = resolve(applicationTypeRef, APPLICATION_ONCREATE, cha)
+    val onTerminate = resolve(applicationTypeRef, APPLICATION_ONTERMINATE, cha)
     val g = new GraphImpl[IMethod](root = Some(onCreate))
     g.addEdge(onCreate, onTerminate)
     g
