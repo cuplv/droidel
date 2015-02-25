@@ -240,8 +240,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
 
     // emit findFragmentById method for both app and support fragments
     val (supportFragments, appFragments) = fragmentFields.partition(e => isSupportFragment(cha.lookupClass(e.typ)))
-    emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
-    emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+    if (!supportFragments.isEmpty) emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
+    if (!appFragments.isEmpty) emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
@@ -265,7 +265,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     // emit specialized getters for each View and Fragment with a statically known id
     val specializedGetters = {
       val viewMap = emitSpecializedGettersForLayoutElems(viewFields, "getView", specializedGetterMap)
-      emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
+      if (!fragmentFields.isEmpty) emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
+      else viewMap
     }
         
     writer.endType() // end class            
