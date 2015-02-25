@@ -10,7 +10,7 @@ import edu.colorado.droidel.constants.DroidelConstants._
 /** generate a harness that calls the Android main (ActivityThread.main) and injects our stubs */
 class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
 
-  def generateHarness(instrumentedBinDir : String, androidJarPath : String) : Unit = {
+  def generateHarness(instrumentedBinDir : String, androidJarPath : String, generateFragmentStubs : Boolean) : Unit = {
     writer.emitPackage(HARNESS_DIR)
 
     val STUBS_CLASS = "AllStubs"
@@ -41,10 +41,12 @@ class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
 
     // View's
     emitFindLayoutComponentById(VIEW_TYPE, "findViewById")
-    // app Fragment's
-    emitFindLayoutComponentById(APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
-    // support Fragment's
-    emitFindLayoutComponentById(FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
+    if (generateFragmentStubs) {
+      // app Fragment's
+      emitFindLayoutComponentById(APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+      // support Fragment's
+      emitFindLayoutComponentById(FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
+    }
 
     // emit override method for manifest-declared callbacks
     writer.emitAnnotation(OVERRIDE)

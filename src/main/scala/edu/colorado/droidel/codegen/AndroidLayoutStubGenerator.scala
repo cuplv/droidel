@@ -27,7 +27,8 @@ class InhabitedLayoutElement(val name : String, val id : Option[Int], val inhabi
 class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
                                  cha : IClassHierarchy, 
                                  androidJarPath : String, 
-                                 appBinPath : String) extends AndroidStubGeneratorWithInstrumentation {
+                                 appBinPath : String,
+                                 generateFragmentStubs : Boolean) extends AndroidStubGeneratorWithInstrumentation {
   // rather than keep track of layouts and view hierarchies, smush them all together into one giant hierarchy
   // this creates complications for things like duplicate id's
   val SMUSH_VIEWS = true
@@ -128,8 +129,9 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       case _ => false
     } 
     
-    def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement],
-                                         allocs : List[Statement]) : (List[InhabitedLayoutElement],List[Statement]) = {
+    def getFieldsAndAllocsForLayoutElems(elems : Iterable[LayoutElement], allocs : List[Statement],
+                                         generateFragmentStubs : Boolean) : (List[InhabitedLayoutElement],
+                                                                             List[Statement]) = {
       def checkForInhabitationProblems(clazz: IClass, v : LayoutElement): Option[String] =
         if (clazz == null)
           Some("we could not resolve it in the class hierarchy")
@@ -160,8 +162,8 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       )
     }
       
-    val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement])
-    val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1)
+    val (viewFields, allocs1) = getFieldsAndAllocsForLayoutElems(views, List.empty[Statement], generateFragmentStubs)
+    val (fragmentFields, finalAllocs) = getFieldsAndAllocsForLayoutElems(fragments, allocs1, generateFragmentStubs)
         
     val stubDir = new File(STUB_DIR)
     if (!stubDir.exists()) stubDir.mkdir()
@@ -240,8 +242,10 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
 
     // emit findFragmentById method for both app and support fragments
     val (supportFragments, appFragments) = fragmentFields.partition(e => isSupportFragment(cha.lookupClass(e.typ)))
-    if (!supportFragments.isEmpty) emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
-    if (!appFragments.isEmpty) emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+    if (generateFragmentStubs) {
+      emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
+      emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+    }
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 
                                              specializedGetterMap : Map[Int,MethodReference]) : Map[Int,MethodReference] = 
@@ -265,7 +269,7 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     // emit specialized getters for each View and Fragment with a statically known id
     val specializedGetters = {
       val viewMap = emitSpecializedGettersForLayoutElems(viewFields, "getView", specializedGetterMap)
-      if (!fragmentFields.isEmpty) emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
+      if (generateFragmentStubs) emitSpecializedGettersForLayoutElems(fragmentFields, "getFragment", viewMap)
       else viewMap
     }
         

@@ -33,7 +33,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                             useJPhantom : Boolean = true,
                             instrumentLibs : Boolean = true,
                             cleanupGeneratedFiles : Boolean = true,
-                            generateFrameworkIndependentHarness : Boolean = false) {
+                            generateFrameworkIndependentHarness : Boolean = false,
+                            generateFragmentStubs : Boolean = true) {
   require(androidJar.exists(), s"Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
@@ -615,18 +616,20 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
 
     // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
     val harnessGen = new SimpleAndroidHarnessGenerator()
-    harnessGen.generateHarness(instrumentedBinDirPath, androidJar.getAbsolutePath)
+    harnessGen.generateHarness(instrumentedBinDirPath, androidJar.getAbsolutePath, generateFragmentStubs)
     instrumentedBinDirFile
   }
 
   def generateStubs(layoutMap : Map[IClass,Set[LayoutElement]], cha : IClassHierarchy) :
     (Map[IMethod, (SSAInvokeInstruction, IR) => Option[Patch]], Iterable[InhabitedLayoutElement], List[File]) = {
     println("Generating stubs")
-    val layoutStubGenerator = new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath, appBinPath)
+    val layoutStubGenerator =
+      new AndroidLayoutStubGenerator(layoutMap, cha, androidJar.getAbsolutePath, appBinPath, generateFragmentStubs)
     val (stubMap, generatedStubs) = layoutStubGenerator.generateStubs()
     val (finalStubMap, stubPaths) =
       if (generateFrameworkIndependentHarness) (stubMap, generatedStubs)
-      else new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
+      else
+        new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
     timer.printTimeTaken("Generating and compiling stubs")
     (finalStubMap, layoutStubGenerator.getInhabitedElems, stubPaths)
   }
@@ -634,7 +637,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   def parseLayout(cha : IClassHierarchy) : (Map[IClass,Set[LayoutElement]], Map[IClass,Set[IMethod]]) = {
     println("Parsing layout")
     val layoutIdClassMap = makeLayoutIdToClassMapping(cha)
-    val layoutMap = new LayoutParser().parseAndroidLayout(new File(appPath), new File(appBinPath), manifest, layoutIdClassMap)
+    val layoutMap =
+      new LayoutParser().parseAndroidLayout(new File(appPath), new File(appBinPath), manifest, layoutIdClassMap)
     val manifestDeclaredCallbackMap = collectManifestDeclaredCallbacks(layoutMap)
     timer.printTimeTaken("Parsing layout")
     (layoutMap, manifestDeclaredCallbackMap)

@@ -12,15 +12,19 @@ object Main {
     val NO_JPHANTOM = "-no_jphantom"
     val NO_INSTRUMENT = "-no_instrument"
     val FRAMEWORKLESS_HARNESS = "-frameworkless_harness"
+    val NO_FRAGMENT_STUBS = "-no_fragment_stubs"
     val DROIDEL_HOME = "-droidel_home"
     val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
     	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
 		  
     val flags = Map(NO_JPHANTOM -> ("Don't preprocess app bytecodes with JPhantom. Less sound, but faster", false),
-                    NO_INSTRUMENT -> ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false),
+                    NO_INSTRUMENT ->
+                      ("Don't perform bytecode instrumentation of libraries. Less sound, but much faster", false),
                     FRAMEWORKLESS_HARNESS ->
-                      ("Generate harness usable outside of the Android framework rather than using ActivityThread.main", false))
+                      ("Generate harness usable outside of the Android framework rather than using ActivityThread.main",
+                       false),
+                    NO_FRAGMENT_STUBS -> ("Don't generated stubs for Fragment's (either app or support)", false))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh $APP <path_to_app> $ANDROID_JAR <path_to_jar> [flags]")
@@ -43,7 +47,8 @@ object Main {
       }
 
       @annotation.tailrec
-      def parseOpts(args : List[String], parsedArgs : Map[String,String], parsedFlags : Map[String,Boolean]) : (Map[String,String], Map[String,Boolean]) = args match {
+      def parseOpts(args : List[String], parsedArgs : Map[String,String],
+                    parsedFlags : Map[String,Boolean]) : (Map[String,String], Map[String,Boolean]) = args match {
         case Nil => (parsedArgs, parsedFlags)
         case opt :: arg :: args if opts.contains(opt) => parseOpts(args, parseArg(opt, arg, parsedArgs), parsedFlags)
         case flag :: args if flags.contains(flag) => parseOpts(args, parsedArgs, parseFlag(flag, parsedFlags))
@@ -57,14 +62,16 @@ object Main {
         printUsage
         sys.error(s"Couldn't find required arg $arg")
       }
-      
+
       val (parsedArgs, parsedFlags) = parseOpts(args.toList, Map.empty[String,String], Map.empty[String,Boolean])
+      def getFlagOrDefault(flag : String) : Boolean = parsedFlags.getOrElse(flag, flags(flag)._2)
       val app = parsedArgs.getOrElse(APP, missingArgError(APP))
       val androidJar = parsedArgs.getOrElse(ANDROID_JAR, missingArgError(ANDROID_JAR))
       val droidelHome = parsedArgs.getOrElse(DROIDEL_HOME, ".")
-      val noJphantom = parsedFlags.getOrElse(NO_JPHANTOM, flags(NO_JPHANTOM)._2)
-      val noInstrument = parsedFlags.getOrElse(NO_INSTRUMENT, flags(NO_INSTRUMENT)._2)
-      val frameworklessHarness = parsedFlags.getOrElse(FRAMEWORKLESS_HARNESS, flags(FRAMEWORKLESS_HARNESS)._2)
+      val noJphantom = getFlagOrDefault(NO_JPHANTOM)
+      val noInstrument = getFlagOrDefault(NO_INSTRUMENT)
+      val noFragmentStubs = getFlagOrDefault(NO_FRAGMENT_STUBS)
+      val frameworklessHarness = getFlagOrDefault(FRAMEWORKLESS_HARNESS)
 
       val appFile = new File(app)
       val jarFile = new File(androidJar)
@@ -81,6 +88,7 @@ object Main {
       val transformer = new AndroidAppTransformer(droidelInput, new File(androidJar), droidelHome,
                                                   useJPhantom = !noJphantom,
                                                   instrumentLibs = !noInstrument,
+                                                  generateFragmentStubs = !noFragmentStubs,
                                                   generateFrameworkIndependentHarness = frameworklessHarness)
 
       transformer.transformApp()
