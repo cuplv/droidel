@@ -629,7 +629,8 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val (finalStubMap, stubPaths) =
       if (generateFrameworkIndependentHarness) (stubMap, generatedStubs)
       else
-        new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath()).generateStubs(stubMap, generatedStubs)
+        new AndroidSystemServiceStubGenerator(cha, androidJar.getAbsolutePath(), appBinPath)
+        .generateStubs(stubMap, generatedStubs)
     timer.printTimeTaken("Generating and compiling stubs")
     (finalStubMap, layoutStubGenerator.getInhabitedElems, stubPaths)
   }

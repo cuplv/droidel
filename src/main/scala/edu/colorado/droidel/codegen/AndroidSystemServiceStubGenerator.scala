@@ -19,7 +19,7 @@ object AndroidSystemServiceStubGenerator {
   val DEBUG = false
 }
 
-class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : String)
+class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : String, appBinPath : String)
   extends AndroidStubGeneratorWithInstrumentation {
   
   val SYSTEM_SERVICES_MAP = Map(
@@ -103,7 +103,7 @@ class AndroidSystemServiceStubGenerator(cha : IClassHierarchy, androidJarPath : 
     writer.endType() // end class
 
     val stubPath = s"$STUB_DIR${File.separator}$SYSTEM_SERVICE_STUB_CLASS"
-    val compiledStub = writeAndCompileStub(stubPath, List("-cp", androidJarPath))
+    val compiledStub = writeAndCompileStub(stubPath, List("-cp", s"${androidJarPath}${File.pathSeparator}$appBinPath"))
     
     val getSystemServiceDescriptor = "(Ljava/lang/String;)Ljava/lang/Object;"
     val contextTypeRef = ClassUtil.makeTypeRef(AndroidConstants.CONTEXT_TYPE)
