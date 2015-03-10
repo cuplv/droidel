@@ -34,7 +34,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
                             instrumentLibs : Boolean = true,
                             cleanupGeneratedFiles : Boolean = true,
                             generateFrameworkIndependentHarness : Boolean = false,
-                            generateFragmentStubs : Boolean = true) {
+                            generateFragmentStubs : Boolean = true,
+                            buildCg : Boolean = false) {
+
   require(androidJar.exists(), s"Couldn't find specified Android JAR file ${androidJar.getAbsolutePath()}")
 
   type TryCreatePatch = (SSAInvokeInstruction, SymbolTable) => Option[Patch]
@@ -728,6 +730,16 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
       generateManifestDeclaredCallbackStubs(manifestDeclaredCallbackMap, cha)
       // generate a harness by using ActivityThread.main and fixing reflection problems via stub generation
       generateFrameworkDependentHarness()
+    }
+
+    if (buildCg) {
+      println("Building call graph")
+      val cgBuilder =
+        new AndroidCGBuilder(makeAnalysisScope(useHarness = true), harnessClass = harnessClassName,
+                             harnessMethod = harnessMethodName)
+      val walaRes = cgBuilder.makeAndroidCallGraph()
+      println("Reachable methods:")
+      walaRes.cg.foreach(n => println(ClassUtil.pretty(n)))
     }
 
     // cleanup generated stub and harness source files

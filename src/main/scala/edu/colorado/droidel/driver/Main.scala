@@ -14,6 +14,7 @@ object Main {
     val FRAMEWORKLESS_HARNESS = "-frameworkless_harness"
     val NO_FRAGMENT_STUBS = "-no_fragment_stubs"
     val DROIDEL_HOME = "-droidel_home"
+    val BUILD_CG = "-build_cg"
     val opts = Map(s"$APP" -> "Path to APK file or top-level directory of Android application",	
     	             s"$ANDROID_JAR" -> "Path to Android library JAR to use during analysis",
                    s"$DROIDEL_HOME" -> "Full path to droidel directory (default: .)")
@@ -24,7 +25,8 @@ object Main {
                     FRAMEWORKLESS_HARNESS ->
                       ("Generate harness usable outside of the Android framework rather than using ActivityThread.main",
                        false),
-                    NO_FRAGMENT_STUBS -> ("Don't generated stubs for Fragment's (either app or support)", false))
+                    NO_FRAGMENT_STUBS -> ("Don't generated stubs for Fragment's (either app or support)", false),
+                    BUILD_CG -> ("After transformation, build call graph and print reachable methods", false))
     
     def printUsage() : Unit = {
       println(s"Usage: ./droidel.sh $APP <path_to_app> $ANDROID_JAR <path_to_jar> [flags]")
@@ -72,6 +74,7 @@ object Main {
       val noInstrument = getFlagOrDefault(NO_INSTRUMENT)
       val noFragmentStubs = getFlagOrDefault(NO_FRAGMENT_STUBS)
       val frameworklessHarness = getFlagOrDefault(FRAMEWORKLESS_HARNESS)
+      val buildCg = getFlagOrDefault(BUILD_CG)
 
       val appFile = new File(app)
       val jarFile = new File(androidJar)
@@ -89,7 +92,8 @@ object Main {
                                                   useJPhantom = !noJphantom,
                                                   instrumentLibs = !noInstrument,
                                                   generateFragmentStubs = !noFragmentStubs,
-                                                  generateFrameworkIndependentHarness = frameworklessHarness)
+                                                  generateFrameworkIndependentHarness = frameworklessHarness,
+                                                  buildCg = buildCg)
 
       transformer.transformApp()
     }
