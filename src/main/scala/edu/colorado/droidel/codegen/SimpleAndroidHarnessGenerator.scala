@@ -56,10 +56,10 @@ class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
     writer.emitAnnotation(OVERRIDE)
     val context = "context"
     val view = "view"
-    writer.beginMethod("void", MANIFEST_DECLARED_CALLBACKS_STUB_METHOD, EnumSet.of(PUBLIC), CONTEXT_TYPE, context,
+    writer.beginMethod("void", XML_DECLARED_CALLBACKS_STUB_METHOD, EnumSet.of(PUBLIC), CONTEXT_TYPE, context,
                        VIEW_TYPE, view)
-    val stubClass = s"$STUB_DIR.$MANIFEST_DECLARED_CALLBACKS_STUB_CLASS"
-    writer.emitStatement(s"$stubClass.$MANIFEST_DECLARED_CALLBACKS_STUB_METHOD($context, $view)")
+    val stubClass = s"$STUB_DIR.$XML_DECLARED_CALLBACKS_STUB_CLASS"
+    writer.emitStatement(s"$stubClass.$XML_DECLARED_CALLBACKS_STUB_METHOD($context, $view)")
     writer.endMethod()
     writer.endType() // end stubs class
 

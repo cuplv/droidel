@@ -9,7 +9,7 @@ import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.walautil.ClassUtil
 
-class ManifestDeclaredCallbackStubGenerator extends AndroidStubGenerator {
+class XMLDeclaredCallbackStubGenerator extends AndroidStubGenerator {
 
   def generateStubs(manifestDeclaredCallbackMap : Map[IClass,Set[IMethod]], stubClassName : String,
                     stubMethodName : String, androidJarPath : String, appBinPath : String) : File = {

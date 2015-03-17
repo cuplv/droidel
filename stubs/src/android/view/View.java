@@ -3814,7 +3814,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
                                     }
                                 }
 
-				droidelStubs.callManifestRegisteredCallback(getContext(), View.this);
+				droidelStubs.callXMLRegisteredCallback(getContext(), View.this);
                                 /*try {
 				    mHandler.invoke(getContext(), View.this);
                                 } catch (IllegalAccessException e) {

@@ -26,6 +26,6 @@ public interface DroidelStubs {
 
     public View inflateViewById(int id, Context ctx);
 
-    public void callManifestRegisteredCallback(Context ctx, View v);
+    public void callXMLRegisteredCallback(Context ctx, View v);
 
 }

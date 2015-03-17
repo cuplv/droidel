@@ -28,8 +28,8 @@ object DroidelConstants {
 
   val SYSTEM_SERVICE_STUB_CLASS = "GeneratedAndroidSystemServiceStubs"
 
-  val MANIFEST_DECLARED_CALLBACKS_STUB_CLASS = "GeneratedAndroidManifestCallbackStubs"
-  val MANIFEST_DECLARED_CALLBACKS_STUB_METHOD = "callManifestRegisteredCallback"
+  val XML_DECLARED_CALLBACKS_STUB_CLASS = "GeneratedAndroidXMLCallbackStubs"
+  val XML_DECLARED_CALLBACKS_STUB_METHOD = "callXMLRegisteredCallback"
 
   val APPLICATION_STUB_CLASS = "GeneratedApplicationStubs"
   val APPLICATION_STUB_METHOD = "getApplication"

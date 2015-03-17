@@ -699,9 +699,9 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
             } else true
           )
       })
-    new ManifestDeclaredCallbackStubGenerator()
-    .generateStubs(filteredMap, MANIFEST_DECLARED_CALLBACKS_STUB_CLASS,
-                   MANIFEST_DECLARED_CALLBACKS_STUB_METHOD, androidJar.getAbsolutePath, appBinPath)
+    new XMLDeclaredCallbackStubGenerator()
+    .generateStubs(filteredMap, XML_DECLARED_CALLBACKS_STUB_CLASS,
+                   XML_DECLARED_CALLBACKS_STUB_METHOD, androidJar.getAbsolutePath, appBinPath)
   }
   
   val timer = new Timer
