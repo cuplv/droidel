@@ -31,22 +31,26 @@ class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
     })
 
     // emit override methods for layout stubs
-    def emitFindLayoutComponentById(typ : String, methodName : String) : Unit = {
+    def emitInflateLayoutComponentById(typ : String, methodName : String) : Unit = {
       val id = "id"
+      val ctx = "ctx"
       writer.emitAnnotation(OVERRIDE)
-      writer.beginMethod(typ, methodName, EnumSet.of(PUBLIC), "int", id)
-      writer.emitStatement(s"return $STUB_DIR.$LAYOUT_STUB_CLASS.$methodName($id)")
+      writer.beginMethod(typ, methodName, EnumSet.of(PUBLIC), "int", id, CONTEXT_TYPE, ctx)
+      writer.emitStatement(s"return $STUB_DIR.$LAYOUT_STUB_CLASS.$methodName($id, $ctx)")
       writer.endMethod()
     }
 
-    // View's
-    emitFindLayoutComponentById(VIEW_TYPE, "findViewById")
-    if (generateFragmentStubs) {
-      // app Fragment's
-      emitFindLayoutComponentById(APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
-      // support Fragment's
-      emitFindLayoutComponentById(FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
+    def emitGetFragment(typ : String, methodName : String) = {
+      val argName = "className"
+      writer.emitAnnotation(OVERRIDE)
+      writer.beginMethod(typ, methodName, EnumSet.of(PUBLIC), "String", argName)
+      writer.emitStatement(s"return $STUB_DIR.$LAYOUT_STUB_CLASS.$methodName($argName)")
+      writer.endMethod()
     }
+
+    emitInflateLayoutComponentById(VIEW_TYPE, INFLATE_VIEW_BY_ID)
+    emitGetFragment(FRAGMENT_TYPE, GET_SUPPORT_FRAGMENT)
+    emitGetFragment(APP_FRAGMENT_TYPE, GET_APP_FRAGMENT)
 
     // emit override method for manifest-declared callbacks
     writer.emitAnnotation(OVERRIDE)

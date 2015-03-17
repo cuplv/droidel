@@ -6,6 +6,7 @@ import javax.lang.model.element.Modifier.{FINAL, PUBLIC, STATIC}
 
 import com.ibm.wala.classLoader.IClass
 import com.ibm.wala.ipa.cha.IClassHierarchy
+import com.squareup.javawriter.JavaWriter
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.walautil.ClassUtil
 
@@ -22,29 +23,7 @@ class AndroidFrameworkCreatedTypesStubGenerator extends AndroidStubGenerator {
     writer.emitPackage(STUB_DIR)
     writer.beginType(stubClassName, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
     writer.beginMethod(stubMethodRetType, stubMethodName, EnumSet.of(PUBLIC, STATIC, FINAL), "String", "className")
-
-    def hasDefaultConstructor(c : IClass) : Boolean =
-      c.getDeclaredMethods.exists(m => m.isInit && m.getNumberOfParameters == 1)
-
-    var firstPass = true
-    classes.foreach(c =>
-      if (hasDefaultConstructor(c)) {
-        inhabitor.inhabitantCache.clear()
-        val cond =
-          if (firstPass) {
-            firstPass = false; "if"
-          }
-          else "else if"
-        writer.beginControlFlow(s"$cond (className == " + '"' + ClassUtil.deWalaifyClassName(c) + '"' + ")")
-        val (ret, allocs) = inhabitor.inhabit(c.getReference, cha, List.empty[Statement], doAllocAndReturnVar = false)
-        allocs.reverse.foreach(alloc => writer.emitStatement(alloc))
-        writer.emitStatement(s"return $ret")
-        writer.endControlFlow()
-      } else
-        println(s"Warning: not allocating $c in $stubMethodRetType stubs since it does not have a default constructor")
-    )
-    if (firstPass) writer.emitStatement(s"return $defaultRet")
-    else writer.emitStatement(s"else return $defaultRet")
+    emitCaseSplitOnClassNameAlloc(classes, defaultRet, writer, cha)
     writer.endMethod()
     writer.endType()
 

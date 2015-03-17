@@ -179,8 +179,10 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     writer.beginType(stubClassName, "class", EnumSet.of(PUBLIC, FINAL)) // begin class
 
     // emit a field for each statically declared View and Fragment
-    viewFields.foreach(v => writer.emitField(ClassUtil.deWalaifyClassName(v.typ), v.name, EnumSet.of(PUBLIC, STATIC)))
-    fragmentFields.foreach(f => writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PUBLIC, STATIC)))
+    viewFields.foreach(v =>
+      writer.emitField(ClassUtil.deWalaifyClassName(v.typ), v.name, EnumSet.of(PUBLIC, STATIC)))
+    fragmentFields.foreach(f =>
+      writer.emitField(ClassUtil.deWalaifyClassName(f.typ), f.name, EnumSet.of(PUBLIC, STATIC)))
     writer.emitEmptyLine()
     
     writer.beginInitializer(true) // begin static
@@ -210,12 +212,11 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
     })*/    
     
     writer.endControlFlow() // end try
-    writer.beginControlFlow("catch (Exception e)") // begin catch   
+    writer.beginControlFlow("catch (Exception e)") // begin catch
     writer.endControlFlow() // end catch
     writer.endInitializer() // end static          
     writer.emitEmptyLine()
-    
-    //def makeIdSwitchForLayoutElements(elems : Iterable[LayoutElement]) : Unit = {
+
     def makeIdSwitchForLayoutElements(elems : Iterable[InhabitedLayoutElement]) : Unit = {
       writer.beginControlFlow("switch (id)") // begin switch on id's
       // one switch case per statically declared element
@@ -225,26 +226,41 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       }) 
       // TODO: do something different here? like returning a phi of all other elements?
       writer.emitStatement("default: return null")
-      writer.endControlFlow() // end switch    
+      writer.endControlFlow() // end switch
     }
-    
-    // emit findViewById method that can return any of the child View's
-    writer.beginMethod(VIEW_TYPE, FIND_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findViewById
-    makeIdSwitchForLayoutElements(viewFields)
-    writer.endMethod() // end findViewById
 
-    def emitFindFragmentById(fragmentFields : Iterable[InhabitedLayoutElement],
-                             returnType : String, methodName : String) : Unit = {
-      writer.beginMethod(returnType, methodName, EnumSet.of(PUBLIC, STATIC), "int", "id") // begin findFragmentById
-      makeIdSwitchForLayoutElements(fragmentFields)
+    // TODO: use the Context when allocating the View's
+    // emit inflateViewById method that can allocate any of the child View's given a Context
+    writer.beginMethod(VIEW_TYPE, INFLATE_VIEW_BY_ID, EnumSet.of(PUBLIC, STATIC), "int", "id",
+                       CONTEXT_TYPE, "ctx") // begin inflateViewById
+    makeIdSwitchForLayoutElements(viewFields)
+    writer.endMethod() // end inflateViewById
+
+    def emitGetFragment(fragmentFields : Iterable[InhabitedLayoutElement], returnType : String,
+                        methodName : String, defaultRet : Expression) : Unit = {
+      val argName = "className"
+      writer.beginMethod(returnType, methodName, EnumSet.of(PUBLIC, STATIC), "String", argName) // begin getFragment
+      var firstPass = true
+      fragmentFields.foreach(f => {
+        val cond =
+          if (firstPass) {
+            firstPass = false;
+            "if"
+          } else "else if"
+        writer.beginControlFlow(s"$cond ($argName == " + '"' + ClassUtil.deWalaifyClassName(f.typ) + '"' + ")")
+        writer.emitStatement(s"return ${f.name}")
+        writer.endControlFlow()
+      })
+      if (firstPass) writer.emitStatement(s"return $defaultRet")
+      else writer.emitStatement(s"else return $defaultRet")
       writer.endMethod()
     }
 
-    // emit findFragmentById method for both app and support fragments
+    // emit getFragment method for both app and support fragments
     val (supportFragments, appFragments) = fragmentFields.partition(e => isSupportFragment(cha.lookupClass(e.typ)))
     if (generateFragmentStubs) {
-      emitFindFragmentById(supportFragments, FRAGMENT_TYPE, FIND_SUPPORT_FRAGMENT_BY_ID)
-      emitFindFragmentById(appFragments, APP_FRAGMENT_TYPE, FIND_APP_FRAGMENT_BY_ID)
+      emitGetFragment(supportFragments, FRAGMENT_TYPE, GET_SUPPORT_FRAGMENT, "null")
+      emitGetFragment(appFragments, APP_FRAGMENT_TYPE, GET_APP_FRAGMENT, "new android.app.Fragment()")
     }
     
     def emitSpecializedGettersForLayoutElems(elems : Iterable[InhabitedLayoutElement], getterName : String, 

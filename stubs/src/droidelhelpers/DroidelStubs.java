@@ -20,11 +20,12 @@ public interface DroidelStubs {
 
     public ContentProvider getContentProvider(String className);
 
-    public View findViewById(int id);
+    public android.app.Fragment getAppFragment(String className);
+
+    public android.support.v4.app.Fragment getSupportFragment(String className);
+
+    public View inflateViewById(int id, Context ctx);
 
     public void callManifestRegisteredCallback(Context ctx, View v);
 
-    public android.app.Fragment findAppFragmentById(int id);
-
-    public android.support.v4.app.Fragment findSupportFragmentById(int id);
 }

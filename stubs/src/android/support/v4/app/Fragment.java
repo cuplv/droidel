@@ -405,7 +405,7 @@ public class Fragment implements ComponentCallbacks, OnCreateContextMenuListener
 
             Fragment f; 
 	    if (Nondet.nondetBool()) f = (Fragment)clazz.newInstance();
-	    else f = droidelStubs.findSupportFragmentById(Nondet.nondetInt());
+	    else f = droidelStubs.getSupportFragment(clazz.getName());
 
             if (args != null) {
                 args.setClassLoader(f.getClass().getClassLoader());

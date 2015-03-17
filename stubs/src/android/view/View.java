@@ -17464,7 +17464,7 @@ public class View implements Drawable.Callback, KeyEvent.Callback,
     public static View inflate(Context context, int resource, ViewGroup root) {
         LayoutInflater factory = LayoutInflater.from(context);
         //return factory.inflate(resource, root);
-	return droidelStubs.findViewById(resource);
+	return droidelStubs.inflateViewById(resource, context);
     }
 
     /**
