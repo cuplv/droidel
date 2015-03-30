@@ -13,7 +13,7 @@ class SimpleAndroidHarnessGenerator extends AndroidStubGenerator {
   def generateHarness(instrumentedBinDir : String, androidJarPath : String, generateFragmentStubs : Boolean) : Unit = {
     writer.emitPackage(HARNESS_DIR)
 
-    val STUBS_CLASS = "AllStubs"
+    val STUBS_CLASS = "AppStubs"
     val STUBS_DELEGATE = s"$PREWRITTEN_STUB_DIR.DroidelStubs"
     writer.beginType(HARNESS_CLASS, "class", EnumSet.of(PUBLIC, FINAL)) // begin harness class
 
