@@ -1,7 +1,5 @@
 package edu.colorado.droidel.driver
 
-import java.io.File
-
 import com.ibm.wala.classLoader.{IClass, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisOptions.ReflectionOptions
 import com.ibm.wala.ipa.callgraph.impl.{ArgumentTypeEntrypoint, ClassHierarchyClassTargetSelector, ClassHierarchyMethodTargetSelector}
@@ -9,9 +7,8 @@ import com.ibm.wala.ipa.callgraph.propagation.SSAContextInterpreter
 import com.ibm.wala.ipa.callgraph.propagation.cfa.ZeroXInstanceKeys
 import com.ibm.wala.ipa.callgraph.{AnalysisCache, AnalysisOptions, AnalysisScope, CallGraphBuilder, ClassTargetSelector, ContextSelector, Entrypoint, MethodTargetSelector}
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
-import edu.colorado.droidel.constants.DroidelConstants
 import edu.colorado.walautil.cg.MemoryFriendlyZeroXContainerCFABuilder
-import edu.colorado.walautil.{ClassUtil, WalaAnalysisResults}
+import edu.colorado.walautil.{ClassUtil, JavaUtil, WalaAnalysisResults}
 
 import scala.collection.JavaConversions._
 
@@ -77,7 +74,7 @@ class AndroidCGBuilder(analysisScope : AnalysisScope, harnessClass : String = "L
   def makeClassTargetSelector() : ClassTargetSelector =new ClassHierarchyClassTargetSelector(cha)  
   
   def addBypassLogic(options : AnalysisOptions, analysisScope : AnalysisScope, cha : IClassHierarchy) : Unit = {
-    val nativeSpec = new File(s"${DroidelConstants.DROIDEL_HOME}/config/natives.xml")
+    val nativeSpec = JavaUtil.getResourceAsFile("natives.xml", getClass)
     assert(nativeSpec.exists(), s"Can't find native spec ${nativeSpec.getAbsolutePath}")
     com.ibm.wala.ipa.callgraph.impl.Util.setNativeSpec(nativeSpec.getAbsolutePath)
     com.ibm.wala.ipa.callgraph.impl.Util.addDefaultBypassLogic(options, analysisScope,

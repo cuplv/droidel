@@ -3,18 +3,17 @@ package edu.colorado.droidel.driver
 import java.io.File
 import java.util.jar.JarFile
 
-import com.ibm.wala.classLoader.{IField, IClass, IMethod}
+import com.ibm.wala.classLoader.{IClass, IField, IMethod}
 import com.ibm.wala.ipa.callgraph.AnalysisScope
 import com.ibm.wala.ipa.cha.{ClassHierarchy, IClassHierarchy}
-import com.ibm.wala.shrikeBT.{IInvokeInstruction, DupInstruction, NewInstruction, MethodEditor}
 import com.ibm.wala.shrikeBT.MethodEditor.{Output, Patch}
+import com.ibm.wala.shrikeBT.{DupInstruction, IInvokeInstruction, MethodEditor, NewInstruction, _}
 import com.ibm.wala.ssa.{IR, SSAInvokeInstruction, SSANewInstruction, SymbolTable}
-import com.ibm.wala.shrikeBT._
 import com.ibm.wala.types.annotations.Annotation
 import com.ibm.wala.types.{ClassLoaderReference, FieldReference, MethodReference, TypeReference}
 import edu.colorado.droidel.codegen._
-import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle}
 import edu.colorado.droidel.constants.DroidelConstants._
+import edu.colorado.droidel.constants.{AndroidConstants, AndroidLifecycle}
 import edu.colorado.droidel.driver.AndroidAppTransformer._
 import edu.colorado.droidel.instrumenter.BytecodeInstrumenter
 import edu.colorado.droidel.parser._
@@ -87,11 +86,14 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     } else unprocessedBinPath
   }
 
-  // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from FlowDroid (Arzt et al. PLDI 201414)
+  // parse list of Android framework classes / interfaces whose methods are used as callbacks. This list comes from
+  // FlowDroid (Arzt et al. PLDI 2014)
   private val callbackClasses =
     Source.fromURL(getClass.getResource(s"${File.separator}${CALLBACK_LIST}"))
     .getLines.foldLeft (Set.empty[TypeReference]) ((set, line) => 
       set + TypeReference.findOrCreate(ClassLoaderReference.Primordial, ClassUtil.walaifyClassName(line)))
+
+  assert(!callbackClasses.isEmpty, "Couldn't find list of callback classes")
 
   val manifest = new ManifestParser().parseAndroidManifest(new File(appPath))
 
@@ -758,7 +760,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
   }
 
   def getWALAStubs : Option[File] = {
-    val f = new File(Seq(DROIDEL_HOME, "config" , "primordial.jar.model").mkString(File.separator))
+    val f = JavaUtil.getResourceAsFile("primordial.jar.model", getClass)
     if (f.exists()) Some(f) else None
   }
     
