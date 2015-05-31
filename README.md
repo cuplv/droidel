@@ -105,7 +105,7 @@ Acknowledgments
 ----------------
 We are indebted to the creators of [FlowDroid](http://sseblog.ec-spride.de/tools/flowdroid/) for both their list of callback classes in the Android framework and their list of lifecycle methods for the core Android lifecycle types (Activity, Service, etc.).
 
-This material is based on research sponsored by DARPA under agreement number FA8750-14-2-0039. The U.S.Government is authorized to reproduce and distribute reprints for Governmental purposes notwithstanding any copyright notation thereon.
+This material is based on research sponsored in part by DARPA under agreement number FA8750-14-2-0039, the National Science Foundation under CAREER grant number CCF-1055066, and a Facebook Graduate Fellowship. The U.S. Government is authorized to reproduce and distribute reprints for Governmental purposes notwithstanding any copyright notation thereon.
 
 
 
