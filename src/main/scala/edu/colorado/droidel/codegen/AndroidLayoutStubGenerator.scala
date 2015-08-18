@@ -13,7 +13,7 @@ import com.ibm.wala.types.{ClassLoaderReference, MethodReference, TypeReference}
 import edu.colorado.droidel.constants.AndroidConstants._
 import edu.colorado.droidel.constants.DroidelConstants._
 import edu.colorado.droidel.parser.{LayoutElement, LayoutFragment, LayoutView}
-import edu.colorado.walautil.{ClassUtil, Util}
+import edu.colorado.walautil.{CHAUtil, ClassUtil, Util}
 
 import scala.collection.JavaConversions._
 
@@ -119,12 +119,12 @@ class AndroidLayoutStubGenerator(resourceMap : Map[IClass,Set[LayoutElement]],
       cha.lookupClass(TypeReference.findOrCreate(ClassLoaderReference.Primordial,
                       ClassUtil.walaifyClassName(APP_FRAGMENT_TYPE)))
 
-    def isFragment(c : IClass, fragmentType : IClass) = fragmentClass != null && cha.isAssignableFrom(fragmentType, c)
+    def isFragment(c : IClass, fragmentType : IClass) = fragmentClass != null && CHAUtil.isAssignableFrom(fragmentType, c, cha)
     def isSupportFragment(c : IClass) = isFragment(c, fragmentClass)
     def isAppFragment(c : IClass) = isFragment(c, appFragmentClass)
 
     def isSubtypeOfViewOrFragment(elem : LayoutElement, elemClass : IClass) : Boolean = elem match {
-      case elem : LayoutView => cha.isAssignableFrom(viewClass, elemClass)
+      case elem : LayoutView => CHAUtil.isAssignableFrom(viewClass, elemClass, cha)
       case elem : LayoutFragment => isSupportFragment(elemClass) || isAppFragment(elemClass)
       case _ => false
     } 

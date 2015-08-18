@@ -679,7 +679,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     val filteredMap =
       manifestDeclaredCallbackMap.filter(pair => {
         val (clazz, cbSet) = pair
-        if (!cha.isAssignableFrom(activityType, clazz)) {
+        if (!CHAUtil.isAssignableFrom(activityType, clazz, cha)) {
           // TODO: I think this comes up due to problems in computing the manifest-declared callback map
           println(s"Warning: expecting $clazz to be Activity subclass.")
           if (DEBUG) sys.error("exiting")
@@ -692,10 +692,10 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
             } else if (cb.getNumberOfParameters != 2) {
               println(s"Warning: expected exactly two parameters for manifest-registered cb $cb")
               false
-            } else if (!cha.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0)))) {
+            } else if (!CHAUtil.isAssignableFrom(contextType, cha.lookupClass(cb.getParameterType(0)), cha)) {
               println(s"Warning: expected first argument of $cb to be a subtype of Context")
               false
-            } else if (!cha.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1)))) {
+            } else if (!CHAUtil.isAssignableFrom(viewType, cha.lookupClass(cb.getParameterType(1)), cha)) {
               println(s"Warning: expected second argument of $cb to be a subtype of View")
               false
             } else true
