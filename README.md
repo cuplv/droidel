@@ -23,6 +23,8 @@ When callbacks are registered in the layout XML via the `onClick` attribute, Dro
 
 Installation
 ------------
+Droidel has been tested on JDK 7. There are known issues with JDK 8.
+
 Installing Droidel requires Scala 2.10.2 or later, sbt, maven, and ant. Droidel depends on [WALA](https://github.com/wala/WALA) and it also uses the [JPhantom](http://cgi.di.uoa.gr/~smaragd/jphantom-oopsla13.pdf) [tool](https://github.com/gbalats/jphantom). To install Droidel, run the following from Droidel's top-level directory:
 
 (1) Download and build unmanaged dependencies using the provided script:
@@ -41,6 +43,9 @@ In order to run Droidel, you first need to generate a JAR file for the Android f
 
 Droidel has been tested using the [Android 4.4.2](http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar) JAR. Other versions of Android may require slight adjustments to the stubs in order to compile.
 
+    cd stubs
+    wget http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar
+    ./compile_stubs.sh android-4.4.2_r1.jar
 
 Running Droidel
 ---------------
