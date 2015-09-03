@@ -42,9 +42,9 @@ In order to run Droidel, you first need to generate a JAR file for the Android f
 Droidel has been tested using the [Android 4.4.2](http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar) JAR. Other versions of Android may require slight adjustments to the stubs in order to compile.
 
 
-Converting Directory Structure of Application
+Converting Directory Structure of Android Application
 ---------------------------------------------
-The script gradle-to-standard.sh is used to convert the directory structure from a gradle project to what Droidel expects.  After the script is built with a command such as:
+The script gradle-to-standard.sh is used to convert the directory structure from an Android gradle project to what Droidel expects.  After the script is built with a command such as:
 
     ./gradlew assembleDebug 
    
