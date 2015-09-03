@@ -47,6 +47,18 @@ Droidel has been tested using the [Android 4.4.2](http://repository.grepcode.com
     wget http://repository.grepcode.com/java/ext/com/google/android/android/4.4.2_r1/android-4.4.2_r1.jar
     ./compile_stubs.sh android-4.4.2_r1.jar
 
+Converting Directory Structure of Android Application
+---------------------------------------------
+The script lib/gradle-to-droidel.sh is used to convert the directory structure from an Android Gradle project to what Droidel expects.  After the script is built with a command such as:
+
+    ./gradlew assembleDebug 
+   
+The script can be run as 
+
+    sh lib/gradle-to-droidel.sh [path to project] [build (eg debug)] [output dir]
+    
+The output directory can then be used as a normal project would in droidel.
+
 Running Droidel
 ---------------
 
