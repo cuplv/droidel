@@ -50,7 +50,7 @@ The script lib/gradle-to-droidel.sh is used to convert the directory structure f
    
 The script can be run as 
 
-    sh gradle-to-standard.sh [path to project] [build (eg debug)] [output dir]
+    sh lib/gradle-to-droidel.sh [path to project] [build (eg debug)] [output dir]
     
 The output directory can then be used as a normal project would in droidel.
 
