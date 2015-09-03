@@ -44,7 +44,15 @@ Droidel has been tested using the [Android 4.4.2](http://repository.grepcode.com
 
 Converting Directory Structure of Application
 ---------------------------------------------
-The script gradle-to-standard.sh is used to convert the directory structure from a gradle project to what Droidel expects.  After the script is built with a command such as "./gradlew assembleDebug" the script can be run as "sh gradle-to-standard.sh [path to project] [build (eg debug)] [output dir]"
+The script gradle-to-standard.sh is used to convert the directory structure from a gradle project to what Droidel expects.  After the script is built with a command such as:
+
+    ./gradlew assembleDebug 
+   
+The script can be run as 
+
+    sh gradle-to-standard.sh [path to project] [build (eg debug)] [output dir]
+    
+The output direcotry can then be used as a normal project would in droidel.
 
 Running Droidel
 ---------------
