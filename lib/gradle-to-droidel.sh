@@ -34,7 +34,10 @@ else
 	echo "classes dir not found"
 fi
 
-if [ -d $appdir/build/intermediates/res/ ]
+if [ -d $appdir/build/intermediates/res/merged/ ]
+then
+	cp -R $appdir/build/intermediates/res/merged/$build/layout $target/res/layout
+elif [ -d $appdir/build/intermediates/res/ ]
 then
 	cp -R $appdir/build/intermediates/res/$build/layout $target/res/layout
 elif [ -d $appdir/res/layout ]
