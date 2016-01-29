@@ -12,7 +12,7 @@ object DroidelConstants {
   // path to libraries in canonical layout of Android project
   val LIB_SUFFIX = "libs"
   // path to binaries in canonical layout of Android project    
-  val BIN_SUFFIX = s"bin${File.separator}classes"
+//  val BIN_SUFFIX = s"bin${File.separator}classes" //TODO: remove this parameter after heuristics work
   // path to binaries that have been complemented by JPhantom
   val JPHANTOMIZED_BIN_SUFFIX = s"bin${File.separator}jphantom_classes"
   // path to binaries that have been instrumented by Droidel
