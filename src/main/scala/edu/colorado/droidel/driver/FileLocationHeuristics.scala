@@ -62,10 +62,23 @@ object FileLocationHeuristics {
       val toSet: Set[String] = a.toSet
       toSet
     })
+    val countsOfClassFileLocations: Map[String, Int] = map.foldLeft(Map[String,Int]())(
+      (acc: Map[String, Int], v: Array[String]) => {
+        val clist: Map[String, Int] = v.foldLeft(acc)((acc: Map[String, Int], v: String) => {
+          val cnt = acc.getOrElse(v, 0)
+          acc.updated(v, cnt + 1)
+        })
+        clist
+    })
+    val locListCount: List[(String, Int)] = countsOfClassFileLocations.toList.sortBy(_._2)
 
 
 
-    ???
+    if(locListCount.length < 1){
+      throw new IllegalStateException("could not find class file directory")
+    }else {
+      locListCount(0)._1
+    }
 
   }
 
