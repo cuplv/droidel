@@ -3,7 +3,7 @@
 Droidel
 =======
 
-Droidel is a model of the Android framework that simplifies static analysis of Android apps. It works by examining app code and using it to explicate tricky uses of reflection in the Android framework. The result is a transformed app with a single entrypoint ready to be analyzed by any Java program analysis framework ([WALA](http://wala.sourceforge.net/wiki/index.php/Main_Page), [Soot](http://www.sable.mcgill.ca/soot/), [Chord](http://pag.gatech.edu/chord), etc.). See our SOAP 2015 [paper](https://www.cs.colorado.edu/~sabl4745/papers/droidel.pdf) for a full explanation of the Droidel approach.
+Droidel is a model of the Android framework that simplifies static analysis of Android apps. It works by examining app code and using it to explicate tricky uses of reflection in the Android framework. The result is a transformed app with a single entrypoint ready to be analyzed by any Java program analysis framework ([WALA](http://wala.sourceforge.net/wiki/index.php/Main_Page), [Soot](http://www.sable.mcgill.ca/soot/), [Chord](http://pag.gatech.edu/chord), etc.). See our SOAP 2015 [paper](http://www.cs.colorado.edu/~bec/papers/droidel-soap15.pdf) for a full explanation of the Droidel approach.
 
 
 What Android features does Droidel handle?
