@@ -619,7 +619,7 @@ class AndroidAppTransformer(_appPath : String, androidJar : File, droidelHome : 
     Process(Seq("mv", STUB_DIR, s"$instrumentedBinDirPath${File.separator}${STUB_DIR}")).!!
 
     // note that this automatically moves the compiled harness file into the bin directory for the instrumented app
-    val harnessGen = new SimpleAndroidHarnessGenerator()
+    val harnessGen = new SimpleAndroidHarnessGenerator(generateFragmentStubs)
     harnessGen.generateHarness(instrumentedBinDirPath, androidJar.getAbsolutePath, generateFragmentStubs)
     instrumentedBinDirFile
   }
